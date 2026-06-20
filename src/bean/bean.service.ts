@@ -3,13 +3,13 @@ import { CreateBeanDto } from "./dto/create-bean.dto";
 import { UpdateBeanDto } from "./dto/update-bean.dto";
 
 @Injectable()
-export class BeansService {
+export class BeanService {
 	create(createBeanDto: CreateBeanDto) {
-		return `Bean created: ${JSON.stringify(createBeanDto)}`;
+		return "This action adds a new bean";
 	}
 
 	findAll() {
-		return `This action returns all beans`;
+		return `This action returns all bean`;
 	}
 
 	findOne(id: number) {

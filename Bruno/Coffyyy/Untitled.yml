@@ -4,15 +4,8 @@ info:
   seq: 1
 
 http:
-  method: POST
-  url: http://localhost:3000/beans
-  body:
-    type: json
-    data: |-
-      {
-       "name": "aled",
-       "description": "ouais ouaiis ouais"
-      }
+  method: GET
+  url: http://localhost:3000/bean
   auth: inherit
 
 settings:
