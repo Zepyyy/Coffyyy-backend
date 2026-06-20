@@ -4,10 +4,70 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+    provider     = "prisma-client"
+    output       = "../generated/prisma"
+    moduleFormat = "cjs"
 }
 
 datasource db {
-  provider = "postgresql"
+    provider = "postgresql"
+}
+
+model Bean {
+    id           Int      @id @default(autoincrement())
+    name         String   @unique
+    flavors      String[]
+    rating       Int
+    roastLevel   Int
+    countries    String[]
+    cities       String[]
+    botanic      String
+    varieties    String[]
+    brands       String[]
+    status       String   @default("")
+    dominantNote String
+    finished     Boolean  @default(false)
+
+    brews Brew[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model Brew {
+    id             Int      @id @default(autoincrement())
+    beanWeight     Int?
+    espressoWeight Int?
+    extractionTime String?
+    flow           String?
+    overallRating  Int?
+    tasteScore     Int?
+    strengthScore  Int?
+    grindSize      Int?
+    date           DateTime
+
+    bean   Bean @relation(fields: [beanId], references: [id])
+    beanId Int
+
+    machine   Machine @relation(fields: [machineId], references: [id])
+    machineId Int
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model Machine {
+    id           Int      @id @default(autoincrement())
+    name         String   @unique
+    brand        String
+    type         String
+    purchaseDate DateTime
+    model        String
+    grindRange   String
+    capacity     Int
+
+    brews Brew[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
 }
