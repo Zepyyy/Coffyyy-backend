@@ -1,0 +1,48 @@
+info:
+  name: Create bean
+  type: http
+  seq: 1
+
+http:
+  method: post
+  url: http://localhost:3000/api/bean
+  headers:
+    - name: accept
+      value: "*/*"
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "name": "string",
+        "flavors": [
+          "string"
+        ],
+        "rating": 0,
+        "roastLevel": 0,
+        "countries": [
+          "string"
+        ],
+        "cities": [
+          "string"
+        ],
+        "botanic": "ARABICA",
+        "varieties": [
+          "string"
+        ],
+        "brands": [
+          "string"
+        ],
+        "status": "EXCELLENT",
+        "dominantNote": "FRUITY",
+        "designation": "PURE_ORIGIN",
+        "finished": true
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: false
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

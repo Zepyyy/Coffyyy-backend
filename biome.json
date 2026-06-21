@@ -46,7 +46,8 @@
 				"useArrayLiterals": "error",
 				"useAsConstAssertion": "error",
 				"useBlockStatements": "off",
-				"useConsistentArrowReturn": "off"
+				"useConsistentArrowReturn": "off",
+				"useImportType": "off"
 			},
 			"suspicious": {
 				"noAsyncPromiseExecutor": "error",
@@ -91,6 +92,7 @@
 	},
 	"javascript": {
 		"formatter": { "quoteStyle": "double" },
+		"parser": { "unsafeParameterDecoratorsEnabled": true },
 		"globals": ["exports"]
 	},
 	"overrides": [

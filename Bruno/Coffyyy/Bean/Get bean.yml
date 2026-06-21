@@ -1,0 +1,18 @@
+info:
+  name: Get bean
+  type: http
+  seq: 4
+
+http:
+  method: get
+  url: http://localhost:3000/api/bean/1
+  headers:
+    - name: accept
+      value: application/json
+  auth: inherit
+
+settings:
+  encodeUrl: false
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
