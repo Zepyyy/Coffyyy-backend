@@ -1,7 +1,7 @@
 info:
   name: Create bean
   type: http
-  seq: 1
+  seq: 3
 
 http:
   method: post
@@ -15,29 +15,29 @@ http:
     type: json
     data: |-
       {
-        "name": "string",
+        "name": "ssssssss",
         "flavors": [
-          "string"
+          "Apricot"
         ],
-        "rating": 0,
-        "roastLevel": 0,
+        "rating": 1,
+        "roastLevel": 4,
         "countries": [
-          "string"
+          "Colombia"
         ],
         "cities": [
-          "string"
+          "Bogotà"
         ],
         "botanic": "ARABICA",
         "varieties": [
-          "string"
+          "Castillo"
         ],
         "brands": [
-          "string"
+          "TANAT"
         ],
         "status": "EXCELLENT",
         "dominantNote": "FRUITY",
         "designation": "PURE_ORIGIN",
-        "finished": true
+        "finished": false
       }
   auth: inherit
 

@@ -1,26 +1,38 @@
 import { Injectable } from "@nestjs/common";
+import { PrismaService } from "src/prisma/prisma.service";
 import { CreateMachineDto } from "./dto/create-machine.dto";
 import { UpdateMachineDto } from "./dto/update-machine.dto";
 
 @Injectable()
 export class MachineService {
-	create(createMachineDto: CreateMachineDto) {
-		return "This action adds a new machine";
+	constructor(private prisma: PrismaService) {}
+
+	async create(createMachineDto: CreateMachineDto) {
+		return await this.prisma.machine.create({
+			data: createMachineDto,
+		});
 	}
 
-	findAll() {
-		return `This action returns all machine`;
+	async findAll() {
+		return await this.prisma.machine.findMany();
 	}
 
-	findOne(id: number) {
-		return `This action returns a #${id} machine`;
+	async findOne(id: number) {
+		return await this.prisma.machine.findUnique({
+			where: { id },
+		});
 	}
 
-	update(id: number, updateMachineDto: UpdateMachineDto) {
-		return `This action updates a #${id} machine`;
+	async update(id: number, updateMachineDto: UpdateMachineDto) {
+		return await this.prisma.machine.update({
+			where: { id },
+			data: updateMachineDto,
+		});
 	}
 
-	remove(id: number) {
-		return `This action removes a #${id} machine`;
+	async remove(id: number) {
+		return await this.prisma.machine.delete({
+			where: { id },
+		});
 	}
 }

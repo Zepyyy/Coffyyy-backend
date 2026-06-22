@@ -5,7 +5,10 @@ info:
 
 http:
   method: GET
-  url: http://localhost:3000/api/bean
+  url: http://localhost:3000/api/brew
+  headers:
+    - name: accept
+      value: "*/*"
   auth: inherit
 
 settings:

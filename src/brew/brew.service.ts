@@ -1,26 +1,29 @@
 import { Injectable } from "@nestjs/common";
+import { PrismaService } from "src/prisma/prisma.service";
 import { CreateBrewDto } from "./dto/create-brew.dto";
 import { UpdateBrewDto } from "./dto/update-brew.dto";
 
 @Injectable()
 export class BrewService {
-	create(createBrewDto: CreateBrewDto) {
-		return "This action adds a new brew";
+	constructor(private prisma: PrismaService) {}
+
+	async create(dto: CreateBrewDto) {
+		return await this.prisma.brew.create({ data: dto });
 	}
 
-	findAll() {
-		return `This action returns all brew`;
+	async findAll() {
+		return await this.prisma.brew.findMany();
 	}
 
-	findOne(id: number) {
-		return `This action returns a #${id} brew`;
+	async findOne(id: number) {
+		return await this.prisma.brew.findUnique({ where: { id } });
 	}
 
-	update(id: number, updateBrewDto: UpdateBrewDto) {
-		return `This action updates a #${id} brew`;
+	async update(id: number, dto: UpdateBrewDto) {
+		return await this.prisma.brew.update({ where: { id }, data: dto });
 	}
 
-	remove(id: number) {
-		return `This action removes a #${id} brew`;
+	async remove(id: number) {
+		return await this.prisma.brew.delete({ where: { id } });
 	}
 }

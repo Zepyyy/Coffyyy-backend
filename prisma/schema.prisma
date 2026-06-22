@@ -47,10 +47,10 @@ model Brew {
     grindSize      Int      @default(0)
     date           DateTime
 
-    bean   Bean @relation(fields: [beanId], references: [id])
+    bean   Bean @relation(fields: [beanId], references: [id], onDelete: Cascade)
     beanId Int
 
-    machine   Machine @relation(fields: [machineId], references: [id])
+    machine   Machine @relation(fields: [machineId], references: [id], onDelete: Cascade)
     machineId Int
 
     createdAt DateTime @default(now())
@@ -65,7 +65,7 @@ model Machine {
     purchaseDate DateTime?
     model        String    @default("")
     grindRange   String    @default("")
-    capacity     Int       @default(0)
+    capacity     String    @default("")
 
     brews Brew[]
 

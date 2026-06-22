@@ -1,0 +1,32 @@
+info:
+  name: Create machine
+  type: http
+  seq: 3
+
+http:
+  method: post
+  url: http://localhost:3000/api/machine
+  headers:
+    - name: accept
+      value: "*/*"
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "name": "aled",
+        "brand": "qsd",
+        "type": "aze",
+        "purchaseDate": "2026-06-22T16:24:23.081Z",
+        "model": "qsd",
+        "grindRange": "qsd",
+        "capacity": "qsd"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: false
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

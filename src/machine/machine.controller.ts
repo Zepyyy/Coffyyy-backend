@@ -1,34 +1,45 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
-import { CreateMachineDto } from './dto/create-machine.dto';
-import { UpdateMachineDto } from './dto/update-machine.dto';
-import { MachineService } from './machine.service';
+import {
+	Body,
+	Controller,
+	Delete,
+	Get,
+	Param,
+	Patch,
+	Post,
+} from "@nestjs/common";
+import { CreateMachineDto } from "./dto/create-machine.dto";
+import { UpdateMachineDto } from "./dto/update-machine.dto";
+import { MachineService } from "./machine.service";
 
-@Controller('machine')
+@Controller("machine")
 export class MachineController {
-  constructor(private readonly machineService: MachineService) {}
+	constructor(private readonly machineService: MachineService) {}
 
-  @Post()
-  create(@Body() createMachineDto: CreateMachineDto) {
-    return this.machineService.create(createMachineDto);
-  }
+	@Post()
+	async create(@Body() createMachineDto: CreateMachineDto) {
+		return await this.machineService.create(createMachineDto);
+	}
 
-  @Get()
-  findAll() {
-    return this.machineService.findAll();
-  }
+	@Get()
+	async findAll() {
+		return await this.machineService.findAll();
+	}
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.machineService.findOne(+id);
-  }
+	@Get(":id")
+	async findOne(@Param("id") id: string) {
+		return await this.machineService.findOne(+id);
+	}
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateMachineDto: UpdateMachineDto) {
-    return this.machineService.update(+id, updateMachineDto);
-  }
+	@Patch(":id")
+	async update(
+		@Param("id") id: string,
+		@Body() updateMachineDto: UpdateMachineDto,
+	) {
+		return await this.machineService.update(+id, updateMachineDto);
+	}
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.machineService.remove(+id);
-  }
+	@Delete(":id")
+	async remove(@Param("id") id: string) {
+		return await this.machineService.remove(+id);
+	}
 }

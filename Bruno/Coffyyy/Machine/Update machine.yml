@@ -1,11 +1,11 @@
 info:
-  name: Update bean
+  name: Update machine
   type: http
   seq: 4
 
 http:
   method: patch
-  url: http://localhost:3000/api/bean/3
+  url: http://localhost:3000/api/machine/1
   headers:
     - name: accept
       value: "*/*"
@@ -15,9 +15,7 @@ http:
     type: json
     data: |-
       {
-        "brands": [
-          "Terre de café", "TANAT"
-        ]
+        "name": "skldjfb"
       }
   auth: inherit
 

@@ -21,22 +21,22 @@ export class BeanController {
 	}
 
 	@Get()
-	findAll() {
-		return this.beanService.findAll();
+	async findAll() {
+		return await this.beanService.findAll();
 	}
 
 	@Get(":id")
-	findOne(@Param("id") id: string) {
-		return this.beanService.findOne(+id);
+	async findOne(@Param("id") id: string) {
+		return await this.beanService.findOne(+id);
 	}
 
 	@Patch(":id")
-	update(@Param("id") id: string, @Body() updateBeanDto: UpdateBeanDto) {
-		return this.beanService.update(+id, updateBeanDto);
+	async update(@Param("id") id: string, @Body() updateBeanDto: UpdateBeanDto) {
+		return await this.beanService.update(+id, updateBeanDto);
 	}
 
 	@Delete(":id")
-	remove(@Param("id") id: string) {
-		return this.beanService.remove(+id);
+	async remove(@Param("id") id: string) {
+		return await this.beanService.remove(+id);
 	}
 }

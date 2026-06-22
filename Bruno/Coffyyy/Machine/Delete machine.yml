@@ -1,14 +1,14 @@
 info:
-  name: Get bean
+  name: Delete machine
   type: http
-  seq: 2
+  seq: 5
 
 http:
-  method: get
-  url: http://localhost:3000/api/bean/3
+  method: delete
+  url: http://localhost:3000/api/machine/3
   headers:
     - name: accept
-      value: application/json
+      value: "*/*"
   auth: inherit
 
 settings:

@@ -1,34 +1,42 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
-import { BrewService } from './brew.service';
-import { CreateBrewDto } from './dto/create-brew.dto';
-import { UpdateBrewDto } from './dto/update-brew.dto';
+import {
+	Body,
+	Controller,
+	Delete,
+	Get,
+	Param,
+	Patch,
+	Post,
+} from "@nestjs/common";
+import { BrewService } from "./brew.service";
+import { CreateBrewDto } from "./dto/create-brew.dto";
+import { UpdateBrewDto } from "./dto/update-brew.dto";
 
-@Controller('brew')
+@Controller("brew")
 export class BrewController {
-  constructor(private readonly brewService: BrewService) {}
+	constructor(private readonly brewService: BrewService) {}
 
-  @Post()
-  create(@Body() createBrewDto: CreateBrewDto) {
-    return this.brewService.create(createBrewDto);
-  }
+	@Post()
+	async create(@Body() createBrewDto: CreateBrewDto) {
+		return await this.brewService.create(createBrewDto);
+	}
 
-  @Get()
-  findAll() {
-    return this.brewService.findAll();
-  }
+	@Get()
+	async findAll() {
+		return await this.brewService.findAll();
+	}
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.brewService.findOne(+id);
-  }
+	@Get(":id")
+	async findOne(@Param("id") id: string) {
+		return await this.brewService.findOne(+id);
+	}
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateBrewDto: UpdateBrewDto) {
-    return this.brewService.update(+id, updateBrewDto);
-  }
+	@Patch(":id")
+	async update(@Param("id") id: string, @Body() updateBrewDto: UpdateBrewDto) {
+		return await this.brewService.update(+id, updateBrewDto);
+	}
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.brewService.remove(+id);
-  }
+	@Delete(":id")
+	async remove(@Param("id") id: string) {
+		return await this.brewService.remove(+id);
+	}
 }

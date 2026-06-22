@@ -4,12 +4,15 @@ info:
   seq: 1
 
 http:
-  method: GET
-  url: http://localhost:3000/api/bean
+  method: get
+  url: http://localhost:3000/api/machine
+  headers:
+    - name: accept
+      value: "*/*"
   auth: inherit
 
 settings:
-  encodeUrl: true
+  encodeUrl: false
   timeout: 0
   followRedirects: true
   maxRedirects: 5
