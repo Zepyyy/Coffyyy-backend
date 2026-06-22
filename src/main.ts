@@ -15,6 +15,12 @@ async function bootstrap() {
 	SwaggerModule.setup("api", app, documentFactory);
 
 	app.setGlobalPrefix("api");
+	app.enableCors({
+		origin: ["https://coffyyy.quentinstubecki.fr", "http://localhost:5173"],
+		methods: ["GET", "POST", "PUT", "DELETE"],
+		credentials: true,
+		allowedHeaders: ["Content-Type", "Authorization"],
+	});
 	await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();
