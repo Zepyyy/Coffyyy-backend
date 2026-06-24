@@ -8,14 +8,8 @@ import { MachineModule } from "./machine/machine.module";
 import { PrismaModule } from "./prisma/prisma.module";
 
 @Module({
-	imports: [
-		PrismaModule,
-		BeanModule,
-		BrewModule,
-		MachineModule,
-		ConfigModule.forRoot({ isGlobal: true }),
-	],
+	imports: [ConfigModule.forRoot({ isGlobal: true })],
 	controllers: [AppController],
-	providers: [AppService],
+	providers: [AppService, PrismaModule, BeanModule, BrewModule, MachineModule],
 })
 export class AppModule {}

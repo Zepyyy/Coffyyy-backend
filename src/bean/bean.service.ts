@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { PrismaService } from "src/prisma/prisma.service";
+import { Bean } from "../generated/prisma/client";
+import { PrismaService } from "../prisma/prisma.service";
 import { CreateBeanDto } from "./dto/create-bean.dto";
 import { UpdateBeanDto } from "./dto/update-bean.dto";
 
@@ -7,7 +8,7 @@ import { UpdateBeanDto } from "./dto/update-bean.dto";
 export class BeanService {
 	constructor(private prisma: PrismaService) {}
 
-	async create(dto: CreateBeanDto) {
+	async create(dto: CreateBeanDto): Promise<Bean> {
 		return await this.prisma.bean.create({
 			data: dto,
 		});
