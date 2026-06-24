@@ -4,8 +4,8 @@ info:
   seq: 4
 
 http:
-  method: patch
-  url: http://localhost:3000/api/bean/3
+  method: PUT
+  url: http://localhost:3000/api/bean/1
   headers:
     - name: accept
       value: "*/*"
@@ -16,7 +16,7 @@ http:
     data: |-
       {
         "brands": [
-          "Terre de café", "TANAT"
+          "skjdhf"
         ]
       }
   auth: inherit
