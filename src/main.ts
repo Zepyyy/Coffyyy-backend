@@ -8,7 +8,19 @@ async function bootstrap() {
 	const config = new DocumentBuilder()
 		.setTitle("Coffyyy")
 		.setDescription("The Coffyyy API")
-		.setVersion("0.1")
+		.setVersion("0.2")
+		.addBearerAuth(
+			{
+				type: "http",
+				scheme: "bearer",
+				bearerFormat: "JWT",
+				name: "Authorization",
+				description: "Enter your JWT token",
+				in: "header",
+			},
+			"Bearer",
+		)
+		.addSecurityRequirements("Bearer")
 		.build();
 
 	const documentFactory = () => SwaggerModule.createDocument(app, config);
