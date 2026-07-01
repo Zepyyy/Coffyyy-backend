@@ -1,0 +1,25 @@
+info:
+  name: Login
+  type: http
+  seq: 1
+
+http:
+  method: post
+  url: http://localhost:3000/api/auth/login
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "username": "qsd",
+        "password": "qsd"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: false
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,90 +1,107 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+    provider = "prisma-client"
+    output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider = "postgresql"
+    provider = "postgresql"
 }
 
 model Bean {
-  id           Int          @id @default(autoincrement())
-  name         String       @unique
-  flavors      String[]     @default([])
-  rating       Int          @default(0)
-  roastLevel   Int          @default(0)
-  countries    String[]     @default([])
-  cities       String[]     @default([])
-  botanic      Botanic      @default(ARABICA)
-  varieties    String[]     @default([])
-  brands       String[]     @default([])
-  status       Status       @default(NEW)
-  dominantNote DominantNote @default(FRUITY)
-  designation  Designation  @default(PURE_ORIGIN)
-  finished     Boolean?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  brews        Brew[]
+    id           Int          @id @default(autoincrement())
+    name         String       @unique
+    flavors      String[]     @default([])
+    rating       Int          @default(0)
+    roastLevel   Int          @default(0)
+    countries    String[]     @default([])
+    cities       String[]     @default([])
+    botanic      Botanic      @default(ARABICA)
+    varieties    String[]     @default([])
+    brands       String[]     @default([])
+    status       Status       @default(NEW)
+    dominantNote DominantNote @default(FRUITY)
+    designation  Designation  @default(PURE_ORIGIN)
+    finished     Boolean?
+    createdAt    DateTime     @default(now())
+    updatedAt    DateTime     @updatedAt
+    brews        Brew[]
+    user         User?        @relation(fields: [userId], references: [id])
+    userId       Int?
 }
 
 model Brew {
-  id             Int      @id @default(autoincrement())
-  beanWeight     Int?     @default(0)
-  espressoWeight Int?     @default(0)
-  extractionTime String?  @default("")
-  flow           String?  @default("")
-  overallRating  Int?     @default(0)
-  tasteScore     Int?     @default(0)
-  strengthScore  Int?     @default(0)
-  grindSize      Int      @default(0)
-  date           DateTime
-  beanId         Int
-  machineId      Int
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  bean           Bean     @relation(fields: [beanId], references: [id], onDelete: Cascade)
-  machine        Machine  @relation(fields: [machineId], references: [id], onDelete: Cascade)
+    id             Int      @id @default(autoincrement())
+    beanWeight     Int?     @default(0)
+    espressoWeight Int?     @default(0)
+    extractionTime String?  @default("")
+    flow           String?  @default("")
+    overallRating  Int?     @default(0)
+    tasteScore     Int?     @default(0)
+    strengthScore  Int?     @default(0)
+    grindSize      Int      @default(0)
+    date           DateTime
+    beanId         Int
+    machineId      Int
+    createdAt      DateTime @default(now())
+    updatedAt      DateTime @updatedAt
+    bean           Bean     @relation(fields: [beanId], references: [id], onDelete: Cascade)
+    machine        Machine  @relation(fields: [machineId], references: [id], onDelete: Cascade)
+    user           User?    @relation(fields: [userId], references: [id])
+    userId         Int?
 }
 
 model Machine {
-  id           Int       @id @default(autoincrement())
-  name         String    @unique
-  brand        String    @default("")
-  type         String    @default("")
-  purchaseDate DateTime?
-  model        String    @default("")
-  grindRange   String    @default("")
-  capacity     String    @default("")
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  brews        Brew[]
+    id           Int       @id @default(autoincrement())
+    name         String    @unique
+    brand        String    @default("")
+    type         String    @default("")
+    purchaseDate DateTime?
+    model        String    @default("")
+    grindRange   String    @default("")
+    capacity     String    @default("")
+    createdAt    DateTime  @default(now())
+    updatedAt    DateTime  @updatedAt
+    brews        Brew[]
+    user         User?     @relation(fields: [userId], references: [id])
+    userId       Int?
+}
+
+model User {
+    id        Int       @id @default(autoincrement())
+    username  String    @unique @default("")
+    password  String
+    brews     Brew[]
+    machines  Machine[]
+    beans     Bean[]
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @updatedAt
 }
 
 enum Status {
-  EXCELLENT
-  GOOD
-  MID
-  HORRIBLE
-  NEW
+    EXCELLENT
+    GOOD
+    MID
+    HORRIBLE
+    NEW
 }
 
 enum DominantNote {
-  FRUITY
-  NUTTY
-  FLORAL
-  SWEET
-  SOUR
-  SPICES
-  ROASTED
-  GREEN
+    FRUITY
+    NUTTY
+    FLORAL
+    SWEET
+    SOUR
+    SPICES
+    ROASTED
+    GREEN
 }
 
 enum Botanic {
-  ARABICA
-  ROBUSTA
+    ARABICA
+    ROBUSTA
 }
 
 enum Designation {
-  PURE_ORIGIN
-  BLEND
+    PURE_ORIGIN
+    BLEND
 }
