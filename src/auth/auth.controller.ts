@@ -23,7 +23,14 @@ export class AuthController {
 	@Post("login")
 	signIn(@Body() signInDto: SignInDto) {
 		return this.authService.signIn(signInDto.username, signInDto.password);
-	}
+    }
+
+    @HttpCode(HttpStatus.OK)
+    @Public()
+    @Post("signup")
+    async signUp(@Body() body: { username: string; password: string }) {
+        return await this.authService.signUp(body);
+    }
 
 	@UseGuards(AuthGuard)
 	@Get("profile")

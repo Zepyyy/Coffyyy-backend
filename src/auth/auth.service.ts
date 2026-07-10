@@ -24,5 +24,10 @@ export class AuthService {
 			// is the key that was passed in the JwtModule
 			access_token: await this.jwtService.signAsync(payload),
 		};
-	}
+    }
+
+    async signUp(body: { username: string; password: string }) {
+        const hashedPassword = await bcrypt.hash(body.password, 10);
+        return await this.usersService.createUser(body.username, hashedPassword);
+    }
 }
