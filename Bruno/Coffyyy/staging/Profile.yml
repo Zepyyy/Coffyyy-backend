@@ -1,0 +1,20 @@
+info:
+  name: Profile
+  type: http
+  seq: 2
+
+http:
+  method: get
+  url: https://coffyyy-backend-staging.up.railway.app/api/auth/profile
+  headers:
+    - name: accept
+      value: application/json
+    - name: Authorization
+      value: Bearer
+  auth: inherit
+
+settings:
+  encodeUrl: false
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
