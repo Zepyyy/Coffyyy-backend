@@ -1,0 +1,19 @@
+info:
+  name: get beans
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: https://coffyyy-backend-staging.up.railway.app/api/bean
+  headers:
+    - name: Authorization
+      value: Bearer
+      disabled: true
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

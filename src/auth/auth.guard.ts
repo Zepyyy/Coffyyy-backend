@@ -1,51 +1,48 @@
 import {
 	CanActivate,
 	ExecutionContext,
+	ForbiddenException,
 	Injectable,
 	UnauthorizedException,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { JwtService } from "@nestjs/jwt";
-import { Request as Request } from "express";
+import { AuthService } from "./auth.service";
 import { IS_PUBLIC_KEY } from "./public.decorator";
-import { AuthenticatedRequest, JwtPayload } from "./types/jwt-payload";
+import type { AuthenticatedRequest } from "./types/jwt-payload";
+
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 @Injectable()
 export class AuthGuard implements CanActivate {
 	constructor(
-		private readonly jwtService: JwtService,
-		private reflector: Reflector,
+		private readonly authService: AuthService,
+		private readonly reflector: Reflector,
 	) {}
 
 	async canActivate(context: ExecutionContext): Promise<boolean> {
+		// Only explicit @Public routes bypass session authentication.
 		const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
 			context.getHandler(),
 			context.getClass(),
 		]);
-		if (isPublic) {
-			return true;
-		}
+		if (isPublic) return true;
 
 		const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-		const token = this.extractTokenFromHeader(request);
-		if (!token) {
-			throw new UnauthorizedException("No Token");
-		}
 		try {
-			// 💡 Here the JWT secret key that's used for verifying the payload
-			// is the key that was passed in the JwtModule
-			const payload = await this.jwtService.verifyAsync<JwtPayload>(token);
-			// 💡 We're assigning the payload to the request object here
-			// so that we can access it in our route handlers
-			request.user = payload;
-		} catch {
-			throw new UnauthorizedException("Invalid Token");
+			// Session sub becomes sole owner source for every protected controller.
+			request.user = await this.authService.validateSession(request);
+			if (MUTATING_METHODS.has(request.method)) {
+				// Cookies authenticate; header token blocks cross-site mutations.
+				await this.authService.assertCsrf(request, request.user);
+			}
+			return true;
+		} catch (error) {
+			if (
+				error instanceof UnauthorizedException ||
+				error instanceof ForbiddenException
+			)
+				throw error;
+			throw new UnauthorizedException("Session required");
 		}
-		return true;
-	}
-
-	private extractTokenFromHeader(request: Request): string | undefined {
-		const [type, token] = request.headers.authorization?.split(" ") ?? [];
-		return type === "Bearer" ? token : undefined;
 	}
 }
