@@ -9,7 +9,7 @@ datasource db {
 
 model Bean {
     id           Int          @id @default(autoincrement())
-    name         String       @unique
+    name         String
     flavors      String[]     @default([])
     rating       Int          @default(0)
     roastLevel   Int          @default(0)
@@ -27,6 +27,9 @@ model Bean {
     brews        Brew[]
     user         User?        @relation(fields: [userId], references: [id])
     userId       Int?
+
+    @@unique([name, userId])
+    @@index([userId])
 }
 
 model Brew {
@@ -48,11 +51,15 @@ model Brew {
     machine        Machine  @relation(fields: [machineId], references: [id], onDelete: Cascade)
     user           User?    @relation(fields: [userId], references: [id])
     userId         Int?
+
+    @@index([userId])
+    @@index([beanId])
+    @@index([machineId])
 }
 
 model Machine {
     id           Int       @id @default(autoincrement())
-    name         String    @unique
+    name         String
     brand        String    @default("")
     type         String    @default("")
     purchaseDate DateTime?
@@ -64,17 +71,31 @@ model Machine {
     brews        Brew[]
     user         User?     @relation(fields: [userId], references: [id])
     userId       Int?
+
+    @@unique([name, userId])
+    @@index([userId])
 }
 
 model User {
+    // Internal owner record; password remains inaccessible to browser roles.
     id        Int       @id @default(autoincrement())
     username  String    @unique @default("")
     password  String
     brews     Brew[]
     machines  Machine[]
     beans     Bean[]
+    importRuns ImportRun[]
     createdAt DateTime  @default(now())
     updatedAt DateTime  @updatedAt
+}
+
+model ImportRun {
+    idempotencyKey String
+    userId         Int
+    createdAt      DateTime @default(now())
+    user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@id([userId, idempotencyKey])
 }
 
 enum Status {
