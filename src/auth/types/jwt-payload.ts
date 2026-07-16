@@ -1,12 +1,10 @@
 import { Request as ExpressRequest } from "express";
 
-export interface JwtPayload {
+export interface SessionUser {
 	sub: number;
-	username: string;
-	iat?: number;
-	exp?: number;
+	sessionId: string;
 }
 
 export interface AuthenticatedRequest extends ExpressRequest {
-	user: JwtPayload;
+	user: SessionUser;
 }

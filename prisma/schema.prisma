@@ -85,8 +85,37 @@ model User {
     machines  Machine[]
     beans     Bean[]
     importRuns ImportRun[]
+    sessions  Session[]
+    syncCodes SyncCode[]
     createdAt DateTime  @default(now())
     updatedAt DateTime  @updatedAt
+}
+
+model Session {
+    // Cookie session material; token and CSRF values are stored as hashes.
+    id              String    @id @default(uuid())
+    tokenHash       String    @unique
+    csrfTokenHash   String
+    userId          Int
+    createdAt       DateTime  @default(now())
+    lastSeenAt      DateTime  @default(now())
+    expiresAt       DateTime
+    absoluteExpiresAt DateTime
+    revokedAt       DateTime?
+    user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([userId])
+    @@index([expiresAt])
+}
+
+model SyncCode {
+    // One active, expiring pairing code per workspace; plaintext never persisted.
+    id         String   @id @default(uuid())
+    codeHash   String   @unique
+    userId     Int      @unique
+    createdAt  DateTime @default(now())
+    expiresAt  DateTime
+    user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model ImportRun {
