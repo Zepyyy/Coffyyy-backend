@@ -13,10 +13,7 @@ async function bootstrap() {
 		.setTitle("Coffyyy")
 		.setDescription("The Coffyyy API")
 		.setVersion("0.2")
-		.addApiKey(
-			{ type: "apiKey", name: "X-CSRF-Token", in: "header" },
-			"csrf",
-		)
+		.addApiKey({ type: "apiKey", name: "X-CSRF-Token", in: "header" }, "csrf")
 		.build();
 
 	const documentFactory = () => SwaggerModule.createDocument(app, config);
@@ -54,13 +51,20 @@ async function bootstrap() {
 		"http://localhost:5173",
 		"http://localhost:3000",
 		"https://preview.quentinstubecki.fr",
+		...(process.env.CORS_ORIGINS ?? "")
+			.split(",")
+			.map((origin) => origin.trim())
+			.filter(Boolean),
 	]);
+	const isAllowedOrigin = (origin: string) =>
+		allowedOrigins.has(origin) ||
+		/^https:\/\/coffyyy-[a-z0-9-]+-zepy-s-projects\.vercel\.app$/.test(origin);
 	app.enableCors({
 		origin: (
 			origin: string | undefined,
 			callback: (error: Error | null, allow?: boolean) => void,
 		) => {
-			if (!origin || allowedOrigins.has(origin)) callback(null, true);
+			if (!origin || isAllowedOrigin(origin)) callback(null, true);
 			else callback(new Error("Origin is not allowed"));
 		},
 		methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
