@@ -45,31 +45,18 @@ async function bootstrap() {
 
 	// Keep API paths stable for Railway and frontend clients.
 	app.setGlobalPrefix("api");
-	// Credentialed browser traffic is limited to known Coffyyy frontends.
-	const allowedOrigins = new Set([
-		"https://coffyyy.quentinstubecki.fr",
-		"http://localhost:5173",
-		"http://localhost:3000",
-		"https://preview.quentinstubecki.fr",
-		...(process.env.CORS_ORIGINS ?? "")
-			.split(",")
-			.map((origin) => origin.trim())
-			.filter(Boolean),
-	]);
-	const isAllowedOrigin = (origin: string) =>
-		allowedOrigins.has(origin) ||
-		/^https:\/\/coffyyy-[a-z0-9-]+-zepy-s-projects\.vercel\.app$/.test(origin);
 	app.enableCors({
-		origin: (
-			origin: string | undefined,
-			callback: (error: Error | null, allow?: boolean) => void,
-		) => {
-			if (!origin || isAllowedOrigin(origin)) callback(null, true);
-			else callback(new Error("Origin is not allowed"));
-		},
-		methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+		origin: [
+			"http://localhost:5173",
+			"https://preview.quentinstubecki.fr",
+		],
+		methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 		credentials: true,
-		allowedHeaders: ["Content-Type", "X-CSRF-Token"],
+		allowedHeaders: ["Content-Type", "X-CSRF-TOKEN"],
+		exposedHeaders: ["X-CSRF-TOKEN"],
+		cacheControl: "no-store",
+		pragma: "no-cache",
+		expires: "0",
 	});
 	await app.listen(process.env.PORT ?? 3000);
 }

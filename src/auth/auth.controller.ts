@@ -30,13 +30,14 @@ export class AuthController {
 	// Bootstrap token lets browser send CSRF-protected enable/pair requests.
 	@Public()
 	@Get("sync/csrf")
-	getCsrf(@Res({ passthrough: true }) response: Response) {
+    getCsrf(@Res({ passthrough: true }) response: Response) {
+        const csrfToken = randomBytes(32).toString("base64url");
 		setCsrfCookie(
 			response,
-			randomBytes(32).toString("base64url"),
+			csrfToken,
 			SESSION_COOKIE_MAX_AGE_SECONDS,
 		);
-		return { csrfRequired: true };
+		return { csrfRequired: true, csrfToken };
 	}
 
 	// Enable creates internal owner, session cookie, and one copyable sync code.
@@ -57,7 +58,8 @@ export class AuthController {
 		return {
 			workspaceId: session.workspaceId,
 			syncCode: session.syncCode,
-			syncCodeExpiresAt: session.syncCodeExpiresAt,
+            syncCodeExpiresAt: session.syncCodeExpiresAt,
+			csrfToken: session.csrfToken,
 		};
 	}
 
@@ -80,7 +82,8 @@ export class AuthController {
 		return {
 			connected: true,
 			workspaceId: session.workspaceId,
-			expiresAt: session.expiresAt,
+            expiresAt: session.expiresAt,
+			csrfToken: session.csrfToken,
 		};
 	}
 
