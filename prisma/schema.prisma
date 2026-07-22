@@ -83,7 +83,7 @@ model Machine {
     user         User?     @relation(fields: [userId], references: [id])
     userId       Int?
 
-    @@unique([name, userId])
+    // Enforced by a partial index: soft-deleted machines may reuse their name.
     @@unique([userId, clientId])
     @@index([userId])
 }
