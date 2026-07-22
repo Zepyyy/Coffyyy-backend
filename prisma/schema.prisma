@@ -22,6 +22,9 @@ model Bean {
     dominantNote DominantNote @default(FRUITY)
     designation  Designation  @default(PURE_ORIGIN)
     finished     Boolean?
+    clientId     String?
+    revision     Int          @default(0)
+    deletedAt    DateTime?
     createdAt    DateTime     @default(now())
     updatedAt    DateTime     @updatedAt
     brews        Brew[]
@@ -29,6 +32,7 @@ model Bean {
     userId       Int?
 
     @@unique([name, userId])
+    @@unique([userId, clientId])
     @@index([userId])
 }
 
@@ -45,13 +49,17 @@ model Brew {
     date           DateTime
     beanId         Int
     machineId      Int
+    clientId       String?
+    revision       Int      @default(0)
+    deletedAt      DateTime?
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt
-    bean           Bean     @relation(fields: [beanId], references: [id], onDelete: Cascade)
-    machine        Machine  @relation(fields: [machineId], references: [id], onDelete: Cascade)
+    bean           Bean     @relation(fields: [beanId], references: [id], onDelete: Restrict)
+    machine        Machine  @relation(fields: [machineId], references: [id], onDelete: Restrict)
     user           User?    @relation(fields: [userId], references: [id])
     userId         Int?
 
+    @@unique([userId, clientId])
     @@index([userId])
     @@index([beanId])
     @@index([machineId])
@@ -66,6 +74,9 @@ model Machine {
     model        String    @default("")
     grindRange   String    @default("")
     capacity     String    @default("")
+    clientId     String?
+    revision     Int       @default(0)
+    deletedAt    DateTime?
     createdAt    DateTime  @default(now())
     updatedAt    DateTime  @updatedAt
     brews        Brew[]
@@ -73,22 +84,55 @@ model Machine {
     userId       Int?
 
     @@unique([name, userId])
+    @@unique([userId, clientId])
     @@index([userId])
 }
 
 model User {
     // Internal owner record; password remains inaccessible to browser roles.
-    id        Int       @id @default(autoincrement())
-    username  String    @unique @default("")
-    password  String
-    brews     Brew[]
-    machines  Machine[]
-    beans     Bean[]
-    importRuns ImportRun[]
-    sessions  Session[]
-    syncCodes SyncCode[]
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @updatedAt
+    id              Int             @id @default(autoincrement())
+    username        String          @unique @default("")
+    password        String
+    revisionCounter Int             @default(0)
+    brews           Brew[]
+    machines        Machine[]
+    beans           Bean[]
+    importRuns      ImportRun[]
+    sessions        Session[]
+    syncCodes       SyncCode[]
+    changes         Change[]
+    pushOperations  PushOperation[]
+    createdAt       DateTime        @default(now())
+    updatedAt       DateTime        @updatedAt
+}
+
+model Change {
+    // Append-only; source of truth for sync pull, tombstones, and 7-day recovery. See CONTEXT.md.
+    id         Int              @id @default(autoincrement())
+    userId     Int
+    entityType SyncedEntityType
+    serverId   Int
+    clientId   String?
+    revision   Int
+    operation  ChangeOperation
+    payload    Json
+    createdAt  DateTime         @default(now())
+    user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([userId, revision])
+}
+
+model PushOperation {
+    // Dedup record for one outbox push; distinct from ImportRun (one-time migration import).
+    userId      Int
+    operationId String
+    payloadHash String
+    result      Json
+    revision    Int?
+    createdAt   DateTime @default(now())
+    user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@id([userId, operationId])
 }
 
 model Session {
@@ -154,4 +198,16 @@ enum Botanic {
 enum Designation {
     PURE_ORIGIN
     BLEND
+}
+
+enum SyncedEntityType {
+    BEAN
+    BREW
+    MACHINE
+}
+
+enum ChangeOperation {
+    CREATE
+    UPDATE
+    DELETE
 }
