@@ -4,19 +4,21 @@ info:
   seq: 4
 
 http:
-  method: PUT
-  url: http://localhost:3000/api/bean/1
+  method: PATCH
+  url: "{{BaseUrl}}/api/bean/1"
   headers:
     - name: accept
       value: "*/*"
     - name: Content-Type
       value: application/json
+    - name: X-CSRF-TOKEN
+      value: "{{CSRF-TOKEN}}"
   body:
     type: json
     data: |-
       {
-        "brands": [
-          "skjdhf"
+        "countries": [
+          "FRANCE"
         ]
       }
   auth: inherit

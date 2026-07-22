@@ -5,7 +5,7 @@ info:
 
 http:
   method: GET
-  url: https://coffyyy-backend-staging.up.railway.app/api/auth/sync/session
+  url: "{{BaseUrl}}/api/auth/sync/session"
   headers:
     - name: X-CSRF-Token
       value: "{{CSRF-TOKEN}}"

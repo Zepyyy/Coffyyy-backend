@@ -5,7 +5,7 @@ info:
 
 http:
   method: get
-  url: https://coffyyy-backend-staging.up.railway.app/api/auth/sync/csrf
+  url: "{{BaseUrl}}/api/auth/sync/csrf"
   headers:
     - name: accept
       value: application/json

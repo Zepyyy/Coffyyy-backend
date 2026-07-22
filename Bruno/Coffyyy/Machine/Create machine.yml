@@ -5,17 +5,19 @@ info:
 
 http:
   method: post
-  url: http://localhost:3000/api/machine
+  url: "{{BaseUrl}}/api/machine"
   headers:
     - name: accept
       value: "*/*"
     - name: Content-Type
       value: application/json
+    - name: X-CSRF-TOKEN
+      value: "{{CSRF-TOKEN}}"
   body:
     type: json
     data: |-
       {
-        "name": "aled",
+        "name": "qs",
         "brand": "qsd",
         "type": "aze",
         "purchaseDate": "2026-06-22T16:24:23.081Z",
