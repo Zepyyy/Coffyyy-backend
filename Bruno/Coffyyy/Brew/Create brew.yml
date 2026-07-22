@@ -5,12 +5,14 @@ info:
 
 http:
   method: post
-  url: http://localhost:3000/api/brew
+  url: "{{BaseUrl}}/api/brew"
   headers:
     - name: accept
       value: "*/*"
     - name: Content-Type
       value: application/json
+    - name: X-CSRF-TOKEN
+      value: "{{CSRF-TOKEN}}"
   body:
     type: json
     data: |-
@@ -24,8 +26,8 @@ http:
         "strengthScore": 0,
         "grindSize": 0,
         "date": "2026-06-22T16:20:58.535Z",
-        "beanId": 2,
-        "machineId": 3
+        "beanId": 6,
+        "machineId": 1
       }
   auth: inherit
 

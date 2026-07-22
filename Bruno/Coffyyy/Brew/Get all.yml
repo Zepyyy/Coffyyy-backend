@@ -5,10 +5,12 @@ info:
 
 http:
   method: GET
-  url: http://localhost:3000/api/brew
+  url: "{{BaseUrl}}/api/brew"
   headers:
     - name: accept
       value: "*/*"
+    - name: X-CSRF-TOKEN
+      value: "{{CSRF-TOKEN}}"
   auth: inherit
 
 settings:

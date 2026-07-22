@@ -5,7 +5,7 @@ info:
 
 http:
   method: POST
-  url: https://coffyyy-backend-staging.up.railway.app/api/auth/sync/logout
+  url: "{{BaseUrl}}/api/auth/sync/logout"
   headers:
     - name: x-csrf-token
       value: "{{CSRF-TOKEN}}"
