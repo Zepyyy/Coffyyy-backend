@@ -16,14 +16,14 @@ export class MachineService {
 
 	async findAll(userId: number) {
 		return await this.prisma.machine.findMany({
-			where: { userId },
+			where: { userId, deletedAt: null },
 			orderBy: { createdAt: "desc" },
 		});
 	}
 
 	async findOne(id: number, userId: number) {
 		const machine = await this.prisma.machine.findFirst({
-			where: { id, userId },
+			where: { id, userId, deletedAt: null },
 		});
 		if (!machine) throw new NotFoundException("Machine not found");
 		return machine;
@@ -39,8 +39,10 @@ export class MachineService {
 
 	async remove(id: number, userId: number) {
 		await this.findOne(id, userId);
-		return await this.prisma.machine.delete({
+		// Soft-delete: existing brews keep resolving this machine's id (ADR-0002).
+		return await this.prisma.machine.update({
 			where: { id },
+			data: { deletedAt: new Date() },
 		});
 	}
 }

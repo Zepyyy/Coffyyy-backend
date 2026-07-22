@@ -17,14 +17,14 @@ export class BrewService {
 
 	async findAll(userId: number) {
 		return await this.prisma.brew.findMany({
-			where: { userId },
+			where: { userId, deletedAt: null },
 			orderBy: { date: "desc" },
 		});
 	}
 
 	async findOne(id: number, userId: number) {
 		const brew = await this.prisma.brew.findFirst({
-			where: { id, userId },
+			where: { id, userId, deletedAt: null },
 		});
 		if (!brew) throw new NotFoundException("Brew not found");
 		return brew;
@@ -48,7 +48,10 @@ export class BrewService {
 
 	async remove(id: number, userId: number) {
 		await this.findOne(id, userId);
-		return await this.prisma.brew.delete({ where: { id } });
+		return await this.prisma.brew.update({
+			where: { id },
+			data: { deletedAt: new Date() },
+		});
 	}
 
 	private async assertReferencesBelongToUser(
@@ -57,8 +60,12 @@ export class BrewService {
 		userId: number,
 	) {
 		const [bean, machine] = await Promise.all([
-			this.prisma.bean.findFirst({ where: { id: beanId, userId } }),
-			this.prisma.machine.findFirst({ where: { id: machineId, userId } }),
+			this.prisma.bean.findFirst({
+				where: { id: beanId, userId, deletedAt: null },
+			}),
+			this.prisma.machine.findFirst({
+				where: { id: machineId, userId, deletedAt: null },
+			}),
 		]);
 		if (!bean || !machine) {
 			throw new NotFoundException("Bean or machine not found");

@@ -17,14 +17,14 @@ export class BeanService {
 
 	async findAll(userId: number) {
 		return await this.prisma.bean.findMany({
-			where: { userId },
+			where: { userId, deletedAt: null },
 			orderBy: { createdAt: "desc" },
 		});
 	}
 
 	async findOne(id: number, userId: number) {
 		const bean = await this.prisma.bean.findFirst({
-			where: { id, userId },
+			where: { id, userId, deletedAt: null },
 		});
 		if (!bean) throw new NotFoundException("Bean not found");
 		return bean;
@@ -40,8 +40,10 @@ export class BeanService {
 
 	async remove(id: number, userId: number) {
 		await this.findOne(id, userId);
-		return await this.prisma.bean.delete({
+		// Soft-delete: existing brews keep resolving this bean's id (ADR-0002).
+		return await this.prisma.bean.update({
 			where: { id },
+			data: { deletedAt: new Date() },
 		});
 	}
 }
