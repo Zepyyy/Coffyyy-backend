@@ -1,0 +1,21 @@
+info:
+  name: Pair
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: https://coffyyy-backend-staging.up.railway.app/api/auth/sync/pair
+  headers:
+    - name: x-csrf-token
+      value: "{{CSRF-TOKEN}}"
+  body:
+    type: json
+    data: ""
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

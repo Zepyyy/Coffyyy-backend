@@ -1,0 +1,18 @@
+info:
+  name: enableSync
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: https://coffyyy-backend-staging.up.railway.app/api/auth/sync/enable
+  headers:
+    - name: X-CSRF-TOKEN
+      value: "{{CSRF-TOKEN}}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

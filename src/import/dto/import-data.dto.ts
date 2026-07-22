@@ -11,7 +11,10 @@ export type ImportMachine = Omit<CreateMachineDto, "purchaseDate"> & {
 	purchaseDate: string | null;
 };
 
-export type ImportBrew = Omit<CreateBrewDto, "date" | "beanId" | "machineId"> & {
+export type ImportBrew = Omit<
+	CreateBrewDto,
+	"date" | "beanId" | "machineId"
+> & {
 	localId: number;
 	date: string;
 	beanLocalId: number;

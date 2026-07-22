@@ -1,16 +1,14 @@
 info:
-  name: Profile
+  name: CSRF
   type: http
-  seq: 2
+  seq: 1
 
 http:
   method: get
-  url: https://coffyyy-backend-staging.up.railway.app/api/auth/profile
+  url: https://coffyyy-backend-staging.up.railway.app/api/auth/sync/csrf
   headers:
     - name: accept
       value: application/json
-    - name: Authorization
-      value: Bearer
   auth: inherit
 
 settings:

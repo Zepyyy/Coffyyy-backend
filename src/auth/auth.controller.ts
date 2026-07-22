@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import {
 	Body,
 	Controller,
@@ -27,16 +26,15 @@ const SESSION_COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 export class AuthController {
 	constructor(private readonly authService: AuthService) {}
 
-	// Bootstrap token lets browser send CSRF-protected enable/pair requests.
+	// Bootstrap public token, or refresh the token for an existing session.
 	@Public()
 	@Get("sync/csrf")
-    getCsrf(@Res({ passthrough: true }) response: Response) {
-        const csrfToken = randomBytes(32).toString("base64url");
-		setCsrfCookie(
-			response,
-			csrfToken,
-			SESSION_COOKIE_MAX_AGE_SECONDS,
-		);
+	async getCsrf(
+		@Req() request: Request,
+		@Res({ passthrough: true }) response: Response,
+	) {
+		const csrfToken = await this.authService.refreshCsrf(request);
+		setCsrfCookie(response, csrfToken, SESSION_COOKIE_MAX_AGE_SECONDS);
 		return { csrfRequired: true, csrfToken };
 	}
 
@@ -58,7 +56,7 @@ export class AuthController {
 		return {
 			workspaceId: session.workspaceId,
 			syncCode: session.syncCode,
-            syncCodeExpiresAt: session.syncCodeExpiresAt,
+			syncCodeExpiresAt: session.syncCodeExpiresAt,
 			csrfToken: session.csrfToken,
 		};
 	}
@@ -82,7 +80,7 @@ export class AuthController {
 		return {
 			connected: true,
 			workspaceId: session.workspaceId,
-            expiresAt: session.expiresAt,
+			expiresAt: session.expiresAt,
 			csrfToken: session.csrfToken,
 		};
 	}

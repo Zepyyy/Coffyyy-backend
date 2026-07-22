@@ -126,6 +126,21 @@ export class AuthService {
 		};
 	}
 
+	async refreshCsrf(request: Request) {
+		try {
+			const user = await this.validateSession(request);
+			const csrfToken = randomBytes(32).toString("base64url");
+			await this.prisma.session.update({
+				where: { id: user.sessionId },
+				data: { csrfTokenHash: this.hash(csrfToken) },
+			});
+			return csrfToken;
+		} catch (error) {
+			if (!(error instanceof UnauthorizedException)) throw error;
+			return randomBytes(32).toString("base64url");
+		}
+	}
+
 	async rotateSyncCode(user: SessionUser) {
 		const syncCode = await this.createSyncCode(user.sub, new Date());
 		return { syncCode: syncCode.value, expiresAt: syncCode.expiresAt };

@@ -49,6 +49,7 @@ async function bootstrap() {
 		origin: [
 			"http://localhost:5173",
 			"https://preview.quentinstubecki.fr",
+			"https://coffyyy.quentinstubecki.fr",
 		],
 		methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 		credentials: true,
