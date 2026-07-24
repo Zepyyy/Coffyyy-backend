@@ -1,4 +1,7 @@
-import { ChangeOperation, SyncedEntityType } from "../../generated/prisma/enums";
+import {
+	ChangeOperation,
+	SyncedEntityType,
+} from "../../generated/prisma/enums";
 
 export class PushOperationDto {
 	operationId: string;

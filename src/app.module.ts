@@ -8,8 +8,8 @@ import { BrewModule } from "./brew/brew.module";
 import { ImportModule } from "./import/import.module";
 import { MachineModule } from "./machine/machine.module";
 import { PrismaModule } from "./prisma/prisma.module";
-import { UsersModule } from "./users/users.module";
 import { SyncModule } from "./sync/sync.module";
+import { UsersModule } from "./users/users.module";
 
 @Module({
 	imports: [

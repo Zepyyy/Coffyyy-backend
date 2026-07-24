@@ -1,12 +1,12 @@
+import { createHash } from "node:crypto";
 import {
 	BadRequestException,
 	ConflictException,
 	Injectable,
 	NotFoundException,
 } from "@nestjs/common";
-import { createHash } from "node:crypto";
-import { ChangeOperation, SyncedEntityType } from "../generated/prisma/enums";
 import { Prisma } from "../generated/prisma/client";
+import { ChangeOperation, SyncedEntityType } from "../generated/prisma/enums";
 import { PrismaService } from "../prisma/prisma.service";
 import { PushOperationDto } from "./dto/push-operation.dto";
 
@@ -22,21 +22,49 @@ type SyncRow = { id: number; [key: string]: unknown };
 type SyncDelegate = {
 	create(args: { data: Record<string, unknown> }): Promise<SyncRow>;
 	findFirst(args: { where: Record<string, unknown> }): Promise<SyncRow | null>;
-	update(args: { where: Record<string, unknown>; data: Record<string, unknown> }): Promise<SyncRow>;
+	update(args: {
+		where: Record<string, unknown>;
+		data: Record<string, unknown>;
+	}): Promise<SyncRow>;
 };
 
 const ENTITY_FIELDS: Record<SyncedEntityType, string[]> = {
 	[SyncedEntityType.BEAN]: [
-		"name", "flavors", "rating", "roastLevel", "countries", "cities",
-		"botanic", "varieties", "brands", "status", "dominantNote",
-		"designation", "finished",
+		"name",
+		"flavors",
+		"rating",
+		"roastLevel",
+		"countries",
+		"cities",
+		"botanic",
+		"varieties",
+		"brands",
+		"status",
+		"dominantNote",
+		"designation",
+		"finished",
 	],
 	[SyncedEntityType.BREW]: [
-		"beanId", "machineId", "beanWeight", "espressoWeight", "extractionTime",
-		"flow", "overallRating", "tasteScore", "strengthScore", "grindSize", "date",
+		"beanId",
+		"machineId",
+		"beanWeight",
+		"espressoWeight",
+		"extractionTime",
+		"flow",
+		"overallRating",
+		"tasteScore",
+		"strengthScore",
+		"grindSize",
+		"date",
 	],
 	[SyncedEntityType.MACHINE]: [
-		"name", "brand", "type", "purchaseDate", "model", "grindRange", "capacity",
+		"name",
+		"brand",
+		"type",
+		"purchaseDate",
+		"model",
+		"grindRange",
+		"capacity",
 	],
 };
 
@@ -60,16 +88,20 @@ export class SyncService {
 			});
 			if (existing) {
 				if (existing.payloadHash !== payloadHash) {
-					throw new ConflictException("operationId already used with a different payload");
+					throw new ConflictException(
+						"operationId already used with a different payload",
+					);
 				}
 				return existing.result as PushResult;
 			}
 
-			const revision = (await tx.user.update({
-				where: { id: userId },
-				data: { revisionCounter: { increment: 1 } },
-				select: { revisionCounter: true },
-			})).revisionCounter;
+			const revision = (
+				await tx.user.update({
+					where: { id: userId },
+					data: { revisionCounter: { increment: 1 } },
+					select: { revisionCounter: true },
+				})
+			).revisionCounter;
 			const row = await this.apply(tx, dto, userId, revision);
 			const result: PushResult = {
 				operationId: dto.operationId,
@@ -90,29 +122,47 @@ export class SyncService {
 				},
 			});
 			await tx.pushOperation.create({
-				data: { userId, operationId: dto.operationId, payloadHash, result, revision },
+				data: {
+					userId,
+					operationId: dto.operationId,
+					payloadHash,
+					result,
+					revision,
+				},
 			});
 			return result;
 		});
 	}
 
-	private async apply(tx: Prisma.TransactionClient, dto: PushOperationDto, userId: number, revision: number) {
+	private async apply(
+		tx: Prisma.TransactionClient,
+		dto: PushOperationDto,
+		userId: number,
+		revision: number,
+	) {
 		const data = this.entityData(dto, userId, revision);
-		const delegate = (tx as unknown as Record<string, SyncDelegate>)[this.delegate(dto.entityType)];
+		const delegate = (tx as unknown as Record<string, SyncDelegate>)[
+			this.delegate(dto.entityType)
+		];
 		if (dto.operation === ChangeOperation.CREATE) {
-			if (dto.serverId !== undefined) throw new BadRequestException("CREATE cannot include serverId");
+			if (dto.serverId !== undefined)
+				throw new BadRequestException("CREATE cannot include serverId");
 			if (dto.entityType === SyncedEntityType.BREW) {
 				await this.assertBrewReferences(tx, data, userId);
 			}
 			return await delegate.create({ data });
 		}
 
-		if (dto.serverId === undefined) throw new BadRequestException("UPDATE and DELETE require serverId");
+		if (dto.serverId === undefined)
+			throw new BadRequestException("UPDATE and DELETE require serverId");
 		const where = { id: dto.serverId, userId, deletedAt: null };
 		const current = await delegate.findFirst({ where });
 		if (!current) throw new NotFoundException("Synced entity not found");
 		if (dto.operation === ChangeOperation.DELETE) {
-			return await delegate.update({ where: { id: dto.serverId }, data: { deletedAt: new Date(), revision } });
+			return await delegate.update({
+				where: { id: dto.serverId },
+				data: { deletedAt: new Date(), revision },
+			});
 		}
 		if (dto.entityType === SyncedEntityType.BREW) {
 			await this.assertBrewReferences(tx, { ...current, ...data }, userId);
@@ -120,7 +170,11 @@ export class SyncService {
 		return await delegate.update({ where: { id: dto.serverId }, data });
 	}
 
-	private async assertBrewReferences(tx: Prisma.TransactionClient, data: Record<string, unknown>, userId: number) {
+	private async assertBrewReferences(
+		tx: Prisma.TransactionClient,
+		data: Record<string, unknown>,
+		userId: number,
+	) {
 		const beanId = data.beanId;
 		const machineId = data.machineId;
 		if (typeof beanId !== "number" || typeof machineId !== "number") {
@@ -128,42 +182,70 @@ export class SyncService {
 		}
 		const [bean, machine] = await Promise.all([
 			tx.bean.findFirst({ where: { id: beanId, userId, deletedAt: null } }),
-			tx.machine.findFirst({ where: { id: machineId, userId, deletedAt: null } }),
+			tx.machine.findFirst({
+				where: { id: machineId, userId, deletedAt: null },
+			}),
 		]);
-		if (!bean || !machine) throw new NotFoundException("Bean or machine not found");
+		if (!bean || !machine)
+			throw new NotFoundException("Bean or machine not found");
 	}
 
 	private entityData(dto: PushOperationDto, userId: number, revision: number) {
 		const allowed = new Set(ENTITY_FIELDS[dto.entityType]);
-		const data: Record<string, unknown> = { userId, clientId: dto.clientId, revision };
+		const data: Record<string, unknown> = {
+			userId,
+			clientId: dto.clientId,
+			revision,
+		};
 		for (const [key, value] of Object.entries(dto.payload ?? {})) {
-			if (allowed.has(key)) data[key] = key === "date" || key === "purchaseDate" ? new Date(String(value)) : value;
+			if (allowed.has(key))
+				data[key] =
+					key === "date" || key === "purchaseDate"
+						? new Date(String(value))
+						: value;
 		}
 		return data;
 	}
 
 	private delegate(entityType: SyncedEntityType): "bean" | "brew" | "machine" {
-		return entityType === SyncedEntityType.BEAN ? "bean" : entityType === SyncedEntityType.BREW ? "brew" : "machine";
+		return entityType === SyncedEntityType.BEAN
+			? "bean"
+			: entityType === SyncedEntityType.BREW
+				? "brew"
+				: "machine";
 	}
 
 	private validate(dto: PushOperationDto) {
-		if (!dto || typeof dto.operationId !== "string" || dto.operationId.trim() === "" ||
-			typeof dto.clientId !== "string" || dto.clientId.trim() === "" ||
+		if (
+			!dto ||
+			typeof dto.operationId !== "string" ||
+			dto.operationId.trim() === "" ||
+			typeof dto.clientId !== "string" ||
+			dto.clientId.trim() === "" ||
 			!Object.values(SyncedEntityType).includes(dto.entityType) ||
 			!Object.values(ChangeOperation).includes(dto.operation) ||
-			!dto.payload || typeof dto.payload !== "object" || Array.isArray(dto.payload)) {
+			!dto.payload ||
+			typeof dto.payload !== "object" ||
+			Array.isArray(dto.payload)
+		) {
 			throw new BadRequestException("Invalid push operation");
 		}
 	}
 
 	private hash(value: unknown) {
-		return createHash("sha256").update(JSON.stringify(this.sort(value))).digest("hex");
+		return createHash("sha256")
+			.update(JSON.stringify(this.sort(value)))
+			.digest("hex");
 	}
 
 	private sort(value: unknown): unknown {
 		if (Array.isArray(value)) return value.map((item) => this.sort(item));
 		if (value && typeof value === "object") {
-			return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, this.sort(item)]));
+			return Object.fromEntries(
+				Object.entries(value)
+					.sort(([a], [b]) => a.localeCompare(b))
+					.map(([key, item]) => [key, this.sort(item)]),
+			);
 		}
 		return value;
 	}
