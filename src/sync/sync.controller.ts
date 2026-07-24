@@ -8,7 +8,10 @@ export class SyncController {
 	constructor(private readonly syncService: SyncService) {}
 
 	@Post("push")
-	push(@Body() dto: PushOperationDto, @Req() req: AuthenticatedRequest) {
+	push(
+		@Body() dto: PushOperationDto | PushOperationDto[],
+		@Req() req: AuthenticatedRequest,
+	) {
 		return this.syncService.push(dto, req.user.sub);
 	}
 }

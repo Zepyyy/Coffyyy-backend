@@ -27,6 +27,7 @@ type SyncDelegate = {
 		data: Record<string, unknown>;
 	}): Promise<SyncRow>;
 };
+type PushInput = PushOperationDto | PushOperationDto[];
 
 const ENTITY_FIELDS: Record<SyncedEntityType, string[]> = {
 	[SyncedEntityType.BEAN]: [
@@ -72,66 +73,114 @@ const ENTITY_FIELDS: Record<SyncedEntityType, string[]> = {
 export class SyncService {
 	constructor(private readonly prisma: PrismaService) {}
 
-	async push(dto: PushOperationDto, userId: number): Promise<PushResult> {
-		this.validate(dto);
-		const payloadHash = this.hash({
+	async push(dto: PushInput, userId: number): Promise<PushResult | PushResult[]> {
+		const operations = Array.isArray(dto) ? dto : [dto];
+		if (operations.length === 0) throw new BadRequestException("Invalid push batch");
+		operations.forEach((operation) => this.validate(operation));
+
+		const results = await this.prisma.$transaction(async (tx) => {
+			const clientIds = new Map<string, number>();
+			const acks: PushResult[] = [];
+
+			for (const operation of operations) {
+				const payloadHash = this.payloadHash(operation);
+				const existing = await tx.pushOperation.findUnique({
+					where: {
+						userId_operationId: {
+							userId,
+							operationId: operation.operationId,
+						},
+					},
+				});
+				if (existing) {
+					if (existing.payloadHash !== payloadHash) {
+						throw new ConflictException(
+							"operationId already used with a different payload",
+						);
+					}
+					const result = existing.result as PushResult;
+					this.rememberClientId(clientIds, operation, result);
+					acks.push(result);
+					continue;
+				}
+
+				const revision = (
+					await tx.user.update({
+						where: { id: userId },
+						data: { revisionCounter: { increment: 1 } },
+						select: { revisionCounter: true },
+					})
+				).revisionCounter;
+				const resolved = this.resolveReferences(operation, clientIds);
+				const row = await this.apply(tx, resolved, userId, revision);
+				const result: PushResult = {
+					operationId: operation.operationId,
+					status: "applied",
+					serverId: row.id,
+					revision,
+				};
+
+				await tx.change.create({
+					data: {
+						userId,
+						entityType: operation.entityType,
+						serverId: row.id,
+						clientId: operation.clientId,
+						revision,
+						operation: operation.operation,
+						payload: this.jsonValue(row),
+					},
+				});
+				await tx.pushOperation.create({
+					data: {
+						userId,
+						operationId: operation.operationId,
+						payloadHash,
+						result,
+						revision,
+					},
+				});
+				this.rememberClientId(clientIds, operation, result);
+				acks.push(result);
+			}
+			return acks;
+		});
+
+		return Array.isArray(dto) ? results : results[0];
+	}
+
+	private payloadHash(dto: PushOperationDto) {
+		return this.hash({
 			entityType: dto.entityType,
 			operation: dto.operation,
 			clientId: dto.clientId,
 			serverId: dto.serverId,
 			payload: dto.payload,
 		});
+	}
 
-		return await this.prisma.$transaction(async (tx) => {
-			const existing = await tx.pushOperation.findUnique({
-				where: { userId_operationId: { userId, operationId: dto.operationId } },
-			});
-			if (existing) {
-				if (existing.payloadHash !== payloadHash) {
-					throw new ConflictException(
-						"operationId already used with a different payload",
-					);
-				}
-				return existing.result as PushResult;
-			}
+	private rememberClientId(
+		clientIds: Map<string, number>,
+		dto: PushOperationDto,
+		result: PushResult,
+	) {
+		if (result.serverId !== undefined) clientIds.set(dto.clientId, result.serverId);
+	}
 
-			const revision = (
-				await tx.user.update({
-					where: { id: userId },
-					data: { revisionCounter: { increment: 1 } },
-					select: { revisionCounter: true },
-				})
-			).revisionCounter;
-			const row = await this.apply(tx, dto, userId, revision);
-			const result: PushResult = {
-				operationId: dto.operationId,
-				status: "applied",
-				serverId: row.id,
-				revision,
-			};
-
-			await tx.change.create({
-				data: {
-					userId,
-					entityType: dto.entityType,
-					serverId: row.id,
-					clientId: dto.clientId,
-					revision,
-					operation: dto.operation,
-					payload: this.jsonValue(row),
-				},
-			});
-			await tx.pushOperation.create({
-				data: {
-					userId,
-					operationId: dto.operationId,
-					payloadHash,
-					result,
-					revision,
-				},
-			});
-			return result;
-		});
+	private resolveReferences(
+		dto: PushOperationDto,
+		clientIds: Map<string, number>,
+	): PushOperationDto {
+		const payload = { ...dto.payload };
+		for (const field of ["beanId", "machineId"]) {
+			const value = payload[field];
+			if (typeof value !== "string") continue;
+			const serverId = clientIds.get(value);
+			if (serverId === undefined)
+				throw new BadRequestException(`Unresolved ${field} clientId`);
+			payload[field] = serverId;
+		}
+		return { ...dto, payload };
 	}
 
 	private async apply(
