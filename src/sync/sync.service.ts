@@ -29,6 +29,9 @@ type SyncDelegate = {
 };
 type PushInput = PushOperationDto | PushOperationDto[];
 
+const DEFAULT_CHANGE_LIMIT = 100;
+const MAX_CHANGE_LIMIT = 500;
+
 const ENTITY_FIELDS: Record<SyncedEntityType, string[]> = {
 	[SyncedEntityType.BEAN]: [
 		"name",
@@ -72,6 +75,31 @@ const ENTITY_FIELDS: Record<SyncedEntityType, string[]> = {
 @Injectable()
 export class SyncService {
 	constructor(private readonly prisma: PrismaService) {}
+
+	async changes(since = 0, limit = DEFAULT_CHANGE_LIMIT, userId: number) {
+		if (
+			!Number.isInteger(since) ||
+			since < 0 ||
+			!Number.isInteger(limit) ||
+			limit < 1 ||
+			limit > MAX_CHANGE_LIMIT
+		) {
+			throw new BadRequestException("Invalid changes cursor or limit");
+		}
+
+		const rows = await this.prisma.change.findMany({
+			where: { userId, revision: { gt: since } },
+			orderBy: { revision: "asc" },
+			take: limit + 1,
+		});
+		const changes = rows.slice(0, limit);
+
+		return {
+			changes,
+			nextSince: changes[changes.length - 1]?.revision ?? since,
+			hasMore: rows.length > limit,
+		};
+	}
 
 	async push(dto: PushInput, userId: number): Promise<PushResult | PushResult[]> {
 		const operations = Array.isArray(dto) ? dto : [dto];

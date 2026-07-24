@@ -1,11 +1,34 @@
-import { Body, Controller, Post, Req } from "@nestjs/common";
+import {
+	Body,
+	Controller,
+	DefaultValuePipe,
+	Get,
+	ParseIntPipe,
+	Post,
+	Query,
+	Req,
+} from "@nestjs/common";
+import { AuthService } from "../auth/auth.service";
 import type { AuthenticatedRequest } from "../auth/types/jwt-payload";
 import { PushOperationDto } from "./dto/push-operation.dto";
 import { SyncService } from "./sync.service";
 
 @Controller("sync")
 export class SyncController {
-	constructor(private readonly syncService: SyncService) {}
+	constructor(
+		private readonly syncService: SyncService,
+		private readonly authService: AuthService,
+	) {}
+
+	@Get("changes")
+	async changes(
+		@Query("since", new DefaultValuePipe(0), ParseIntPipe) since: number,
+		@Query("limit", new DefaultValuePipe(100), ParseIntPipe) limit: number,
+		@Req() req: AuthenticatedRequest,
+	) {
+		await this.authService.assertCsrf(req, req.user);
+		return this.syncService.changes(since, limit, req.user.sub);
+	}
 
 	@Post("push")
 	push(

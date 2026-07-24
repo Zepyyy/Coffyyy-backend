@@ -5,7 +5,7 @@ import { SyncService } from "./sync.service";
 
 describe("SyncService", () => {
 	let service: SyncService;
-	let prisma: { $transaction: jest.Mock };
+	let prisma: { $transaction: jest.Mock; change: { findMany: jest.Mock } };
 	// biome-ignore lint/suspicious/noExplicitAny: test file
 	let tx: any;
 	const dto = {
@@ -28,8 +28,31 @@ describe("SyncService", () => {
 			machine: { create: jest.fn(), findFirst: jest.fn() },
 			change: { create: jest.fn() },
 		};
-		prisma = { $transaction: jest.fn((callback) => callback(tx)) };
+		prisma = {
+			$transaction: jest.fn((callback) => callback(tx)),
+			change: { findMany: jest.fn() },
+		};
 		service = new SyncService(prisma as unknown as PrismaService);
+	});
+
+	it("returns owner-scoped changes after the cursor with a next page cursor", async () => {
+		const rows = [
+			{ id: 2, userId: 9, revision: 8 },
+			{ id: 3, userId: 9, revision: 9 },
+			{ id: 4, userId: 9, revision: 10 },
+		];
+		prisma.change.findMany.mockResolvedValue(rows);
+
+		await expect(service.changes(7, 2, 9)).resolves.toEqual({
+			changes: rows.slice(0, 2),
+			nextSince: 9,
+			hasMore: true,
+		});
+		expect(prisma.change.findMany).toHaveBeenCalledWith({
+			where: { userId: 9, revision: { gt: 7 } },
+			orderBy: { revision: "asc" },
+			take: 3,
+		});
 	});
 
 	it("applies a create, records one change, and increments revision", async () => {
