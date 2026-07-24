@@ -9,6 +9,7 @@ import { ImportModule } from "./import/import.module";
 import { MachineModule } from "./machine/machine.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { UsersModule } from "./users/users.module";
+import { SyncModule } from "./sync/sync.module";
 
 @Module({
 	imports: [
@@ -20,6 +21,7 @@ import { UsersModule } from "./users/users.module";
 		AuthModule,
 		UsersModule,
 		ImportModule,
+		SyncModule,
 	],
 	controllers: [AppController],
 	providers: [AppService],
