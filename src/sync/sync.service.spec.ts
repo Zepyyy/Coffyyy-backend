@@ -5,7 +5,11 @@ import { SyncService } from "./sync.service";
 
 describe("SyncService", () => {
 	let service: SyncService;
-	let prisma: { $transaction: jest.Mock; change: { findMany: jest.Mock } };
+	let prisma: {
+		$transaction: jest.Mock;
+		change: { findMany: jest.Mock; findFirst: jest.Mock };
+		user: { findUnique: jest.Mock };
+	};
 	// biome-ignore lint/suspicious/noExplicitAny: test file
 	let tx: any;
 	const dto = {
@@ -19,7 +23,10 @@ describe("SyncService", () => {
 	beforeEach(() => {
 		tx = {
 			pushOperation: { findUnique: jest.fn(), create: jest.fn() },
-			user: { update: jest.fn().mockResolvedValue({ revisionCounter: 7 }) },
+			user: {
+				update: jest.fn().mockResolvedValue({ revisionCounter: 7 }),
+				findUnique: jest.fn(),
+			},
 			bean: {
 				create: jest.fn().mockResolvedValue({ id: 42, name: "Ethiopia" }),
 				findFirst: jest.fn(),
@@ -27,45 +34,195 @@ describe("SyncService", () => {
 			},
 			brew: { create: jest.fn(), findFirst: jest.fn() },
 			machine: { create: jest.fn(), findFirst: jest.fn() },
-			change: { create: jest.fn(), findFirst: jest.fn() },
+			change: {
+				create: jest.fn(),
+				findFirst: jest.fn(),
+				findMany: jest.fn(),
+			},
 		};
 		prisma = {
 			$transaction: jest.fn((callback) => callback(tx)),
-			change: { findMany: jest.fn() },
+			change: { findMany: jest.fn(), findFirst: jest.fn() },
+			user: { findUnique: jest.fn() },
 		};
 		service = new SyncService(prisma as unknown as PrismaService);
 	});
 
 	it("returns owner-scoped changes after the cursor with a next page cursor", async () => {
 		const rows = [
-			{ id: 2, userId: 9, revision: 8 },
-			{ id: 3, userId: 9, revision: 9 },
-			{ id: 4, userId: 9, revision: 10 },
+			{
+				id: 2,
+				userId: 9,
+				revision: 8,
+				entityType: SyncedEntityType.BEAN,
+				serverId: 42,
+				clientId: "bean-1",
+				operation: ChangeOperation.CREATE,
+				accepted: true,
+				payload: { id: 42, name: "Ethiopia", revision: 8 },
+			},
+			{
+				id: 3,
+				userId: 9,
+				revision: 9,
+				entityType: SyncedEntityType.BEAN,
+				serverId: 42,
+				clientId: "bean-1",
+				operation: ChangeOperation.UPDATE,
+				accepted: true,
+				payload: { id: 42, name: "Kenya", revision: 9 },
+			},
+			{
+				id: 4,
+				userId: 9,
+				revision: 10,
+				entityType: SyncedEntityType.MACHINE,
+				serverId: 7,
+				clientId: "machine-1",
+				operation: ChangeOperation.DELETE,
+				accepted: true,
+				payload: { id: 7, deletedAt: "2026-07-24T12:00:00.000Z", revision: 10 },
+			},
 		];
-		prisma.change.findMany.mockResolvedValue(rows);
+		tx.change.findFirst.mockResolvedValue({ revision: 8 });
+		tx.user.findUnique.mockResolvedValue({ revisionCounter: 10 });
+		tx.change.findMany.mockResolvedValue(rows);
 
 		await expect(service.changes(7, 2, 9)).resolves.toEqual({
-			changes: rows.slice(0, 2),
-			nextSince: 9,
+			changes: [
+				{
+					revision: 8,
+					entityType: SyncedEntityType.BEAN,
+					serverId: 42,
+					clientId: "bean-1",
+					operation: ChangeOperation.CREATE,
+					payload: { id: 42, name: "Ethiopia", revision: 8 },
+				},
+				{
+					revision: 9,
+					entityType: SyncedEntityType.BEAN,
+					serverId: 42,
+					clientId: "bean-1",
+					operation: ChangeOperation.UPDATE,
+					payload: { id: 42, name: "Kenya", revision: 9 },
+				},
+			],
+			nextCursor: 9,
 			hasMore: true,
+			fullResyncRequired: false,
 		});
-		expect(prisma.change.findMany).toHaveBeenCalledWith({
+		const firstPage = await service.changes(7, 2, 9);
+		await expect(service.changes(7, 2, 9)).resolves.toEqual(firstPage);
+		tx.change.findMany.mockResolvedValue([rows[2]]);
+		await expect(service.changes(9, 2, 9)).resolves.toMatchObject({
+			changes: [expect.objectContaining({ revision: 10 })],
+			nextCursor: 10,
+			hasMore: false,
+		});
+		expect(tx.change.findMany).toHaveBeenCalledWith({
 			where: { userId: 9, revision: { gt: 7 }, accepted: true },
 			orderBy: { revision: "asc" },
 			take: 3,
 		});
 	});
 
+	it("returns a full-resync signal instead of partial expired history", async () => {
+		tx.change.findFirst.mockResolvedValue({ revision: 8 });
+		tx.user.findUnique.mockResolvedValue({ revisionCounter: 10 });
+
+		await expect(service.changes(3, 25, 9)).resolves.toEqual({
+			changes: [],
+			nextCursor: null,
+			hasMore: false,
+			fullResyncRequired: true,
+		});
+		expect(tx.change.findMany).not.toHaveBeenCalled();
+	});
+
+	it("does not return changes from another workspace", async () => {
+		const ownerChange = {
+			revision: 4,
+			entityType: SyncedEntityType.BEAN,
+			serverId: 42,
+			clientId: "owner-bean",
+			operation: ChangeOperation.CREATE,
+			payload: { id: 42, name: "Owner bean", revision: 4 },
+		};
+		const foreignChange = {
+			...ownerChange,
+			serverId: 99,
+			clientId: "foreign-bean",
+			payload: { id: 99, name: "Foreign bean", revision: 4 },
+		};
+		tx.change.findFirst.mockResolvedValue({ revision: 4 });
+		tx.user.findUnique.mockResolvedValue({ revisionCounter: 4 });
+		tx.change.findMany.mockImplementation(
+			({ where }: { where: { userId?: number } }) =>
+				Promise.resolve(where.userId === 9 ? [ownerChange] : [foreignChange]),
+		);
+
+		await expect(service.changes(3, 25, 9)).resolves.toMatchObject({
+			changes: [ownerChange],
+		});
+		expect(tx.change.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: expect.objectContaining({ userId: 9 }),
+			}),
+		);
+	});
+
+	it("keeps a cursor at the retained-history boundary valid", async () => {
+		tx.change.findFirst.mockResolvedValue({ revision: 8 });
+		tx.user.findUnique.mockResolvedValue({ revisionCounter: 8 });
+		tx.change.findMany.mockResolvedValue([]);
+
+		await expect(service.changes(7, 25, 9)).resolves.toMatchObject({
+			nextCursor: 7,
+			fullResyncRequired: false,
+		});
+	});
+
+	it("returns delete changes with their tombstone payload", async () => {
+		const deletedAt = "2026-07-24T12:00:00.000Z";
+		tx.change.findFirst.mockResolvedValue({ revision: 12 });
+		tx.user.findUnique.mockResolvedValue({ revisionCounter: 12 });
+		tx.change.findMany.mockResolvedValue([
+			{
+				id: 6,
+				userId: 9,
+				revision: 12,
+				entityType: SyncedEntityType.MACHINE,
+				serverId: 7,
+				clientId: "machine-1",
+				operation: ChangeOperation.DELETE,
+				accepted: true,
+				payload: { id: 7, name: "C40", deletedAt, revision: 12 },
+			},
+		]);
+
+		await expect(service.changes(11, 25, 9)).resolves.toMatchObject({
+			changes: [
+				expect.objectContaining({
+					operation: ChangeOperation.DELETE,
+					payload: { id: 7, name: "C40", deletedAt, revision: 12 },
+				}),
+			],
+		});
+	});
+
 	it("returns losing versions through history without exposing them as changes", async () => {
 		const rows = [{ id: 5, userId: 9, revision: 8, accepted: false }];
-		prisma.change.findMany.mockResolvedValue(rows);
+		tx.change.findFirst.mockResolvedValue({ revision: 8 });
+		tx.user.findUnique.mockResolvedValue({ revisionCounter: 8 });
+		tx.change.findMany.mockResolvedValue(rows);
 
 		await expect(service.history(7, 2, 9)).resolves.toEqual({
 			changes: rows,
-			nextSince: 8,
+			nextCursor: 8,
 			hasMore: false,
+			fullResyncRequired: false,
 		});
-		expect(prisma.change.findMany).toHaveBeenCalledWith({
+		expect(tx.change.findMany).toHaveBeenCalledWith({
 			where: { userId: 9, revision: { gt: 7 } },
 			orderBy: { revision: "asc" },
 			take: 3,

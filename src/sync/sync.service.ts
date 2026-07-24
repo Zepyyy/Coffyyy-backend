@@ -100,7 +100,7 @@ export class SyncService {
 		return this.listChanges(since, limit, userId, false);
 	}
 
-	private async listChanges(
+	private listChanges(
 		since: number,
 		limit: number,
 		userId: number,
@@ -116,22 +116,72 @@ export class SyncService {
 			throw new BadRequestException("Invalid changes cursor or limit");
 		}
 
-		const rows = await this.prisma.change.findMany({
-			where: {
-				userId,
-				revision: { gt: since },
-				...(canonicalOnly ? { accepted: true } : {}),
-			},
-			orderBy: { revision: "asc" },
-			take: limit + 1,
-		});
-		const changes = rows.slice(0, limit);
+		return this.prisma.$transaction(
+			async (tx) => {
+				const [oldestChange, workspace] = await Promise.all([
+					tx.change.findFirst({
+						where: { userId },
+						orderBy: { revision: "asc" },
+						select: { revision: true },
+					}),
+					tx.user.findUnique({
+						where: { id: userId },
+						select: { revisionCounter: true },
+					}),
+				]);
+				const latestRevision = workspace?.revisionCounter ?? 0;
+				const oldestRevision = oldestChange?.revision ?? latestRevision + 1;
+				const fullResyncRequired =
+					latestRevision > since && since < oldestRevision - 1;
+				if (fullResyncRequired) {
+					return {
+						changes: [],
+						nextCursor: null,
+						hasMore: false,
+						fullResyncRequired: true,
+					};
+				}
 
-		return {
-			changes,
-			nextSince: changes[changes.length - 1]?.revision ?? since,
-			hasMore: rows.length > limit,
-		};
+				const rows = await tx.change.findMany({
+					where: {
+						userId,
+						revision: { gt: since },
+						...(canonicalOnly ? { accepted: true } : {}),
+					},
+					orderBy: { revision: "asc" },
+					take: limit + 1,
+				});
+				const page = rows.slice(0, limit);
+				const changes = canonicalOnly
+					? page.map(
+							({
+								revision,
+								entityType,
+								serverId,
+								clientId,
+								operation,
+								payload,
+							}) => ({
+								revision,
+								entityType,
+								serverId,
+								clientId,
+								operation,
+								payload,
+							}),
+						)
+					: page;
+				const nextCursor = page[page.length - 1]?.revision ?? since;
+
+				return {
+					changes,
+					nextCursor,
+					hasMore: rows.length > limit,
+					fullResyncRequired: false,
+				};
+			},
+			{ isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+		);
 	}
 
 	async push(
