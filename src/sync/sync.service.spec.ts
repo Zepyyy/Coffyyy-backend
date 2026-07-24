@@ -23,10 +23,11 @@ describe("SyncService", () => {
 			bean: {
 				create: jest.fn().mockResolvedValue({ id: 42, name: "Ethiopia" }),
 				findFirst: jest.fn(),
+				updateMany: jest.fn(),
 			},
 			brew: { create: jest.fn(), findFirst: jest.fn() },
 			machine: { create: jest.fn(), findFirst: jest.fn() },
-			change: { create: jest.fn() },
+			change: { create: jest.fn(), findFirst: jest.fn() },
 		};
 		prisma = {
 			$transaction: jest.fn((callback) => callback(tx)),
@@ -49,6 +50,22 @@ describe("SyncService", () => {
 			hasMore: true,
 		});
 		expect(prisma.change.findMany).toHaveBeenCalledWith({
+			where: { userId: 9, revision: { gt: 7 }, accepted: true },
+			orderBy: { revision: "asc" },
+			take: 3,
+		});
+	});
+
+	it("returns losing versions through history without exposing them as changes", async () => {
+		const rows = [{ id: 5, userId: 9, revision: 8, accepted: false }];
+		prisma.change.findMany.mockResolvedValue(rows);
+
+		await expect(service.history(7, 2, 9)).resolves.toEqual({
+			changes: rows,
+			nextSince: 8,
+			hasMore: false,
+		});
+		expect(prisma.change.findMany).toHaveBeenCalledWith({
 			where: { userId: 9, revision: { gt: 7 } },
 			orderBy: { revision: "asc" },
 			take: 3,
@@ -56,11 +73,14 @@ describe("SyncService", () => {
 	});
 
 	it("applies a create, records one change, and increments revision", async () => {
+		tx.bean.create.mockResolvedValue({ id: 42, name: "Ethiopia", revision: 7 });
 		await expect(service.push(dto, 9)).resolves.toEqual({
 			operationId: "op-1",
 			status: "applied",
 			serverId: 42,
 			revision: 7,
+			canonicalRevision: 7,
+			canonical: { id: 42, name: "Ethiopia", revision: 7 },
 		});
 
 		expect(tx.user.update).toHaveBeenCalledWith(
@@ -115,6 +135,193 @@ describe("SyncService", () => {
 		expect(tx.bean.create).not.toHaveBeenCalled();
 	});
 
+	it("rejects a stale update and returns the canonical record", async () => {
+		const update = {
+			...dto,
+			operationId: "op-stale",
+			operation: ChangeOperation.UPDATE,
+			serverId: 42,
+			baseRevision: 4,
+			payload: { name: "stale" },
+		};
+		tx.bean.findFirst.mockResolvedValue({
+			id: 42,
+			name: "newer",
+			revision: 5,
+			deletedAt: null,
+		});
+		tx.change.findFirst.mockResolvedValue({
+			payload: { id: 42, name: "before-newer", revision: 4 },
+		});
+		tx.user.update.mockResolvedValue({ revisionCounter: 6 });
+
+		await expect(service.push(update, 9)).resolves.toEqual({
+			operationId: "op-stale",
+			status: "rejected",
+			serverId: 42,
+			revision: 6,
+			canonicalRevision: 5,
+			reason: "stale_revision",
+			canonical: {
+				id: 42,
+				name: "newer",
+				revision: 5,
+				deletedAt: null,
+			},
+		});
+		expect(tx.bean.updateMany).not.toHaveBeenCalled();
+		expect(tx.change.create).toHaveBeenCalledWith({
+			data: expect.objectContaining({
+				accepted: false,
+				revision: 6,
+				operation: ChangeOperation.UPDATE,
+			}),
+		});
+	});
+
+	it("applies an update only when baseRevision still matches", async () => {
+		const update = {
+			...dto,
+			operationId: "op-update",
+			operation: ChangeOperation.UPDATE,
+			serverId: 42,
+			baseRevision: 4,
+			payload: { name: "newer" },
+		};
+		tx.bean.findFirst
+			.mockResolvedValueOnce({
+				id: 42,
+				name: "old",
+				revision: 4,
+				deletedAt: null,
+			})
+			.mockResolvedValueOnce({
+				id: 42,
+				name: "newer",
+				revision: 5,
+				deletedAt: null,
+			});
+		tx.bean.updateMany.mockResolvedValue({ count: 1 });
+		tx.user.update.mockResolvedValue({ revisionCounter: 5 });
+
+		await expect(service.push(update, 9)).resolves.toEqual({
+			operationId: "op-update",
+			status: "applied",
+			serverId: 42,
+			revision: 5,
+			canonicalRevision: 5,
+			canonical: {
+				id: 42,
+				name: "newer",
+				revision: 5,
+				deletedAt: null,
+			},
+		});
+		expect(tx.bean.updateMany).toHaveBeenCalledWith({
+			where: { id: 42, userId: 9, revision: 4, deletedAt: null },
+			data: { name: "newer", revision: 5 },
+		});
+	});
+
+	it("keeps a newer update authoritative when a delete races it", async () => {
+		const deletion = {
+			...dto,
+			operationId: "op-delete-stale",
+			operation: ChangeOperation.DELETE,
+			serverId: 42,
+			baseRevision: 4,
+			payload: {},
+		};
+		const canonical = {
+			id: 42,
+			name: "newer",
+			revision: 5,
+			deletedAt: null,
+		};
+		tx.bean.findFirst.mockResolvedValue(canonical);
+		tx.change.findFirst.mockResolvedValue({
+			payload: { ...canonical, name: "before-newer", revision: 4 },
+		});
+		tx.user.update.mockResolvedValue({ revisionCounter: 6 });
+
+		await expect(service.push(deletion, 9)).resolves.toMatchObject({
+			status: "rejected",
+			serverId: 42,
+			revision: 6,
+			canonicalRevision: 5,
+			reason: "stale_revision",
+			canonical,
+		});
+		expect(tx.bean.updateMany).not.toHaveBeenCalled();
+	});
+
+	it("rejects when the revision guard loses an update race", async () => {
+		const update = {
+			...dto,
+			operationId: "op-race",
+			operation: ChangeOperation.UPDATE,
+			serverId: 42,
+			baseRevision: 4,
+			payload: { name: "stale" },
+		};
+		tx.bean.findFirst
+			.mockResolvedValueOnce({
+				id: 42,
+				name: "old",
+				revision: 4,
+				deletedAt: null,
+			})
+			.mockResolvedValueOnce({
+				id: 42,
+				name: "newer",
+				revision: 5,
+				deletedAt: null,
+			});
+		tx.bean.updateMany.mockResolvedValue({ count: 0 });
+		tx.change.findFirst.mockResolvedValue({
+			payload: { id: 42, name: "old", revision: 4 },
+		});
+		tx.user.update.mockResolvedValue({ revisionCounter: 6 });
+
+		await expect(service.push(update, 9)).resolves.toMatchObject({
+			status: "rejected",
+			serverId: 42,
+			revision: 6,
+			canonicalRevision: 5,
+			reason: "stale_revision",
+		});
+	});
+
+	it("replays a stale rejection without allocating another revision", async () => {
+		const stale = {
+			...dto,
+			operationId: "op-stale-retry",
+			operation: ChangeOperation.UPDATE,
+			serverId: 42,
+			baseRevision: 4,
+			payload: { name: "stale" },
+		};
+		const result = {
+			operationId: "op-stale-retry",
+			status: "rejected",
+			serverId: 42,
+			revision: 6,
+			canonicalRevision: 5,
+			canonical: { id: 42, name: "newer", revision: 5 },
+			reason: "stale_revision",
+		} as const;
+		tx.pushOperation.findUnique.mockResolvedValue({
+			payloadHash: (
+				service as unknown as { payloadHash(value: unknown): string }
+			).payloadHash(stale),
+			result,
+		});
+
+		await expect(service.push(stale, 9)).resolves.toEqual(result);
+		expect(tx.user.update).not.toHaveBeenCalled();
+		expect(tx.change.create).not.toHaveBeenCalled();
+	});
+
 	it("applies an ordered batch and resolves create dependencies", async () => {
 		const brew = {
 			...dto,
@@ -123,17 +330,34 @@ describe("SyncService", () => {
 			clientId: "brew-1",
 			payload: { beanId: "local-1", machineId: 8, date: "2026-07-24" },
 		};
-		tx.bean.create.mockResolvedValue({ id: 42, name: "Ethiopia" });
+		tx.bean.findFirst
+			.mockResolvedValueOnce(null)
+			.mockResolvedValueOnce({ id: 42 });
+		tx.bean.create.mockResolvedValue({ id: 42, name: "Ethiopia", revision: 7 });
 		tx.machine.findFirst.mockResolvedValue({ id: 8 });
 		tx.bean.findFirst.mockResolvedValue({ id: 42 });
-		tx.brew.create.mockResolvedValue({ id: 43 });
+		tx.brew.create.mockResolvedValue({ id: 43, revision: 8 });
 		tx.user.update
 			.mockResolvedValueOnce({ revisionCounter: 7 })
 			.mockResolvedValueOnce({ revisionCounter: 8 });
 
 		await expect(service.push([dto, brew], 9)).resolves.toEqual([
-			{ operationId: "op-1", status: "applied", serverId: 42, revision: 7 },
-			{ operationId: "op-2", status: "applied", serverId: 43, revision: 8 },
+			{
+				operationId: "op-1",
+				status: "applied",
+				serverId: 42,
+				revision: 7,
+				canonicalRevision: 7,
+				canonical: { id: 42, name: "Ethiopia", revision: 7 },
+			},
+			{
+				operationId: "op-2",
+				status: "applied",
+				serverId: 43,
+				revision: 8,
+				canonicalRevision: 8,
+				canonical: { id: 43, revision: 8 },
+			},
 		]);
 		expect(tx.brew.create).toHaveBeenCalledWith({
 			data: expect.objectContaining({ beanId: 42, machineId: 8 }),
@@ -162,17 +386,32 @@ describe("SyncService", () => {
 			operationId: "op-2",
 			clientId: "local-2",
 		};
-		const first = { operationId: "op-1", status: "applied", serverId: 42, revision: 7 };
-		const second = { operationId: "op-2", status: "applied", serverId: 43, revision: 8 };
+		const first = {
+			operationId: "op-1",
+			status: "applied",
+			serverId: 42,
+			revision: 7,
+		};
+		const second = {
+			operationId: "op-2",
+			status: "applied",
+			serverId: 43,
+			revision: 8,
+		};
 		const existing = (operation: typeof dto, result: typeof first) => ({
-			payloadHash: (service as any).payloadHash(operation),
+			payloadHash: (
+				service as unknown as { payloadHash(value: unknown): string }
+			).payloadHash(operation),
 			result,
 		});
 		tx.pushOperation.findUnique
 			.mockResolvedValueOnce(existing(dto, first))
 			.mockResolvedValueOnce(existing(brew, second));
 
-		await expect(service.push([dto, brew], 9)).resolves.toEqual([first, second]);
+		await expect(service.push([dto, brew], 9)).resolves.toEqual([
+			first,
+			second,
+		]);
 		expect(tx.user.update).not.toHaveBeenCalled();
 		expect(tx.bean.create).not.toHaveBeenCalled();
 	});

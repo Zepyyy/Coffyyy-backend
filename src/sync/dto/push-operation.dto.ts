@@ -9,5 +9,7 @@ export class PushOperationDto {
 	operation: ChangeOperation;
 	clientId: string;
 	serverId?: number;
+	/** Revision observed for the target record before this update/delete. */
+	baseRevision?: number;
 	payload: Record<string, unknown>;
 }

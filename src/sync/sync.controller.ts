@@ -30,6 +30,16 @@ export class SyncController {
 		return this.syncService.changes(since, limit, req.user.sub);
 	}
 
+	@Get("history")
+	async history(
+		@Query("since", new DefaultValuePipe(0), ParseIntPipe) since: number,
+		@Query("limit", new DefaultValuePipe(100), ParseIntPipe) limit: number,
+		@Req() req: AuthenticatedRequest,
+	) {
+		await this.authService.assertCsrf(req, req.user);
+		return this.syncService.history(since, limit, req.user.sub);
+	}
+
 	@Post("push")
 	push(
 		@Body() dto: PushOperationDto | PushOperationDto[],

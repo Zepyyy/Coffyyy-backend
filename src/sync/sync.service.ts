@@ -13,21 +13,37 @@ import { PushOperationDto } from "./dto/push-operation.dto";
 type PushResult = {
 	operationId: string;
 	status: "applied" | "rejected";
-	serverId?: number;
-	revision?: number;
-	reason?: string;
+	serverId: number;
+	revision: number;
+	canonicalRevision: number;
+	canonical: Record<string, unknown>;
+	reason?: "stale_revision" | "client_id_conflict" | "already_deleted";
 };
 
-type SyncRow = { id: number; [key: string]: unknown };
+type SyncRow = {
+	id: number;
+	revision?: number;
+	deletedAt?: unknown;
+	[key: string]: unknown;
+};
+
 type SyncDelegate = {
 	create(args: { data: Record<string, unknown> }): Promise<SyncRow>;
 	findFirst(args: { where: Record<string, unknown> }): Promise<SyncRow | null>;
-	update(args: {
+	updateMany(args: {
 		where: Record<string, unknown>;
 		data: Record<string, unknown>;
-	}): Promise<SyncRow>;
+	}): Promise<{ count: number }>;
 };
+
 type PushInput = PushOperationDto | PushOperationDto[];
+
+type ApplyOutcome = {
+	row: SyncRow;
+	accepted: boolean;
+	reason?: PushResult["reason"];
+	changePayload: Record<string, unknown>;
+};
 
 const DEFAULT_CHANGE_LIMIT = 100;
 const MAX_CHANGE_LIMIT = 500;
@@ -76,7 +92,20 @@ const ENTITY_FIELDS: Record<SyncedEntityType, string[]> = {
 export class SyncService {
 	constructor(private readonly prisma: PrismaService) {}
 
-	async changes(since = 0, limit = DEFAULT_CHANGE_LIMIT, userId: number) {
+	changes(since = 0, limit = DEFAULT_CHANGE_LIMIT, userId: number) {
+		return this.listChanges(since, limit, userId, true);
+	}
+
+	history(since = 0, limit = DEFAULT_CHANGE_LIMIT, userId: number) {
+		return this.listChanges(since, limit, userId, false);
+	}
+
+	private async listChanges(
+		since: number,
+		limit: number,
+		userId: number,
+		canonicalOnly: boolean,
+	) {
 		if (
 			!Number.isInteger(since) ||
 			since < 0 ||
@@ -88,7 +117,11 @@ export class SyncService {
 		}
 
 		const rows = await this.prisma.change.findMany({
-			where: { userId, revision: { gt: since } },
+			where: {
+				userId,
+				revision: { gt: since },
+				...(canonicalOnly ? { accepted: true } : {}),
+			},
 			orderBy: { revision: "asc" },
 			take: limit + 1,
 		});
@@ -101,9 +134,13 @@ export class SyncService {
 		};
 	}
 
-	async push(dto: PushInput, userId: number): Promise<PushResult | PushResult[]> {
+	async push(
+		dto: PushInput,
+		userId: number,
+	): Promise<PushResult | PushResult[]> {
 		const operations = Array.isArray(dto) ? dto : [dto];
-		if (operations.length === 0) throw new BadRequestException("Invalid push batch");
+		if (operations.length === 0)
+			throw new BadRequestException("Invalid push batch");
 		operations.forEach((operation) => this.validate(operation));
 
 		const results = await this.prisma.$transaction(async (tx) => {
@@ -140,23 +177,27 @@ export class SyncService {
 					})
 				).revisionCounter;
 				const resolved = this.resolveReferences(operation, clientIds);
-				const row = await this.apply(tx, resolved, userId, revision);
+				const outcome = await this.apply(tx, resolved, userId, revision);
 				const result: PushResult = {
 					operationId: operation.operationId,
-					status: "applied",
-					serverId: row.id,
+					status: outcome.accepted ? "applied" : "rejected",
+					serverId: outcome.row.id,
 					revision,
+					canonicalRevision: this.rowRevision(outcome.row),
+					canonical: this.jsonRecord(outcome.row),
+					...(outcome.reason ? { reason: outcome.reason } : {}),
 				};
 
 				await tx.change.create({
 					data: {
 						userId,
 						entityType: operation.entityType,
-						serverId: row.id,
+						serverId: outcome.row.id,
 						clientId: operation.clientId,
 						revision,
 						operation: operation.operation,
-						payload: this.jsonValue(row),
+						accepted: outcome.accepted,
+						payload: this.jsonValue(outcome.changePayload),
 					},
 				});
 				await tx.pushOperation.create({
@@ -164,7 +205,7 @@ export class SyncService {
 						userId,
 						operationId: operation.operationId,
 						payloadHash,
-						result,
+						result: this.jsonValue(result),
 						revision,
 					},
 				});
@@ -183,6 +224,7 @@ export class SyncService {
 			operation: dto.operation,
 			clientId: dto.clientId,
 			serverId: dto.serverId,
+			baseRevision: dto.baseRevision,
 			payload: dto.payload,
 		});
 	}
@@ -192,7 +234,7 @@ export class SyncService {
 		dto: PushOperationDto,
 		result: PushResult,
 	) {
-		if (result.serverId !== undefined) clientIds.set(dto.clientId, result.serverId);
+		clientIds.set(dto.clientId, result.serverId);
 	}
 
 	private resolveReferences(
@@ -216,35 +258,139 @@ export class SyncService {
 		dto: PushOperationDto,
 		userId: number,
 		revision: number,
-	) {
-		const data = this.entityData(dto, userId, revision);
+	): Promise<ApplyOutcome> {
 		const delegate = (tx as unknown as Record<string, SyncDelegate>)[
 			this.delegate(dto.entityType)
 		];
+
 		if (dto.operation === ChangeOperation.CREATE) {
 			if (dto.serverId !== undefined)
 				throw new BadRequestException("CREATE cannot include serverId");
+			const existing = await delegate.findFirst({
+				where: { userId, clientId: dto.clientId },
+			});
+			if (existing) {
+				return {
+					row: existing,
+					accepted: false,
+					reason: "client_id_conflict",
+					changePayload: this.entityData(dto, userId, revision, true),
+				};
+			}
+			const data = this.entityData(dto, userId, revision, true);
 			if (dto.entityType === SyncedEntityType.BREW) {
 				await this.assertBrewReferences(tx, data, userId);
 			}
-			return await delegate.create({ data });
+			const row = await delegate.create({ data });
+			return { row, accepted: true, changePayload: row };
 		}
 
 		if (dto.serverId === undefined)
 			throw new BadRequestException("UPDATE and DELETE require serverId");
-		const where = { id: dto.serverId, userId, deletedAt: null };
-		const current = await delegate.findFirst({ where });
+		const current = await delegate.findFirst({
+			where: { id: dto.serverId, userId },
+		});
 		if (!current) throw new NotFoundException("Synced entity not found");
-		if (dto.operation === ChangeOperation.DELETE) {
-			return await delegate.update({
-				where: { id: dto.serverId },
-				data: { deletedAt: new Date(), revision },
+
+		const currentRevision = this.rowRevision(current);
+		if (
+			dto.baseRevision !== currentRevision ||
+			(current.deletedAt !== null && current.deletedAt !== undefined)
+		) {
+			return await this.rejectStale(tx, dto, current, userId, revision);
+		}
+
+		const data =
+			dto.operation === ChangeOperation.DELETE
+				? { deletedAt: new Date(), revision }
+				: this.entityData(dto, userId, revision, false);
+		if (dto.operation === ChangeOperation.UPDATE) {
+			if (dto.entityType === SyncedEntityType.BREW) {
+				await this.assertBrewReferences(tx, { ...current, ...data }, userId);
+			}
+		}
+
+		const changed = await delegate.updateMany({
+			where: {
+				id: dto.serverId,
+				userId,
+				revision: dto.baseRevision,
+				deletedAt: null,
+			},
+			data,
+		});
+		if (changed.count !== 1) {
+			const latest = await delegate.findFirst({
+				where: { id: dto.serverId, userId },
 			});
+			if (!latest) throw new NotFoundException("Synced entity not found");
+			return await this.rejectStale(tx, dto, latest, userId, revision);
 		}
-		if (dto.entityType === SyncedEntityType.BREW) {
-			await this.assertBrewReferences(tx, { ...current, ...data }, userId);
+
+		const row = await delegate.findFirst({
+			where: { id: dto.serverId, userId },
+		});
+		if (!row) throw new NotFoundException("Synced entity not found");
+		return { row, accepted: true, changePayload: row };
+	}
+
+	private async rejectStale(
+		tx: Prisma.TransactionClient,
+		dto: PushOperationDto,
+		current: SyncRow,
+		userId: number,
+		revision: number,
+	): Promise<ApplyOutcome> {
+		return {
+			row: current,
+			accepted: false,
+			reason:
+				current.deletedAt !== null && current.deletedAt !== undefined
+					? "already_deleted"
+					: "stale_revision",
+			changePayload: await this.losingPayload(
+				tx,
+				dto,
+				current,
+				userId,
+				revision,
+			),
+		};
+	}
+
+	private async losingPayload(
+		tx: Prisma.TransactionClient,
+		dto: PushOperationDto,
+		current: SyncRow,
+		userId: number,
+		revision: number,
+	) {
+		let baseSnapshot = current;
+		if (dto.baseRevision !== undefined) {
+			const previous = await tx.change.findFirst({
+				where: {
+					userId,
+					entityType: dto.entityType,
+					serverId: current.id,
+					revision: { lte: dto.baseRevision },
+					accepted: true,
+				},
+				orderBy: { revision: "desc" },
+			});
+			if (previous?.payload && typeof previous.payload === "object") {
+				baseSnapshot = previous.payload as SyncRow;
+			}
 		}
-		return await delegate.update({ where: { id: dto.serverId }, data });
+
+		if (dto.operation === ChangeOperation.DELETE) {
+			return { ...baseSnapshot, deletedAt: new Date(), revision };
+		}
+		return {
+			...baseSnapshot,
+			...this.entityData(dto, userId, revision, false),
+			id: current.id,
+			revision,
+		};
 	}
 
 	private async assertBrewReferences(
@@ -267,13 +413,18 @@ export class SyncService {
 			throw new NotFoundException("Bean or machine not found");
 	}
 
-	private entityData(dto: PushOperationDto, userId: number, revision: number) {
+	private entityData(
+		dto: PushOperationDto,
+		userId: number,
+		revision: number,
+		creating: boolean,
+	) {
 		const allowed = new Set(ENTITY_FIELDS[dto.entityType]);
-		const data: Record<string, unknown> = {
-			userId,
-			clientId: dto.clientId,
-			revision,
-		};
+		const data: Record<string, unknown> = { revision };
+		if (creating) {
+			data.userId = userId;
+			data.clientId = dto.clientId;
+		}
 		for (const [key, value] of Object.entries(dto.payload ?? {})) {
 			if (allowed.has(key))
 				data[key] =
@@ -301,12 +452,22 @@ export class SyncService {
 			dto.clientId.trim() === "" ||
 			!Object.values(SyncedEntityType).includes(dto.entityType) ||
 			!Object.values(ChangeOperation).includes(dto.operation) ||
+			(dto.serverId !== undefined &&
+				(!Number.isInteger(dto.serverId) || dto.serverId < 1)) ||
+			(dto.baseRevision !== undefined &&
+				(!Number.isInteger(dto.baseRevision) || dto.baseRevision < 0)) ||
+			(dto.operation !== ChangeOperation.CREATE &&
+				dto.baseRevision === undefined) ||
 			!dto.payload ||
 			typeof dto.payload !== "object" ||
 			Array.isArray(dto.payload)
 		) {
 			throw new BadRequestException("Invalid push operation");
 		}
+	}
+
+	private rowRevision(row: SyncRow) {
+		return typeof row.revision === "number" ? row.revision : 0;
 	}
 
 	private hash(value: unknown) {
@@ -329,5 +490,9 @@ export class SyncService {
 
 	private jsonValue(value: unknown) {
 		return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+	}
+
+	private jsonRecord(value: unknown) {
+		return this.jsonValue(value) as Record<string, unknown>;
 	}
 }

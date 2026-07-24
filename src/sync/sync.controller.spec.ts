@@ -5,7 +5,7 @@ import { SyncService } from "./sync.service";
 
 describe("SyncController", () => {
 	let controller: SyncController;
-	const syncService = { changes: jest.fn() };
+	const syncService = { changes: jest.fn(), history: jest.fn() };
 	const authService = { assertCsrf: jest.fn() };
 
 	beforeEach(async () => {
@@ -19,6 +19,7 @@ describe("SyncController", () => {
 
 		controller = module.get<SyncController>(SyncController);
 		syncService.changes.mockReset();
+		syncService.history.mockReset();
 		authService.assertCsrf.mockReset();
 	});
 
@@ -32,5 +33,21 @@ describe("SyncController", () => {
 		);
 		expect(authService.assertCsrf).toHaveBeenCalledWith(request, request.user);
 		expect(syncService.changes).toHaveBeenCalledWith(7, 25, 9);
+	});
+
+	it("gets recoverable history for the authenticated workspace", async () => {
+		const result = {
+			changes: [{ accepted: false }],
+			nextSince: 8,
+			hasMore: false,
+		};
+		const request = { user: { sub: 9 } };
+		syncService.history.mockResolvedValue(result);
+
+		await expect(controller.history(7, 25, request as never)).resolves.toBe(
+			result,
+		);
+		expect(authService.assertCsrf).toHaveBeenCalledWith(request, request.user);
+		expect(syncService.history).toHaveBeenCalledWith(7, 25, 9);
 	});
 });

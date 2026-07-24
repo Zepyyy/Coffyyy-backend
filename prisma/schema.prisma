@@ -115,6 +115,7 @@ model Change {
     clientId   String?
     revision   Int
     operation  ChangeOperation
+    accepted   Boolean          @default(true)
     payload    Json
     createdAt  DateTime         @default(now())
     user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
