@@ -210,23 +210,118 @@ describe("SyncService", () => {
 		});
 	});
 
-	it("returns losing versions through history without exposing them as changes", async () => {
-		const rows = [{ id: 5, userId: 9, revision: 8, accepted: false }];
-		tx.change.findFirst.mockResolvedValue({ revision: 8 });
-		tx.user.findUnique.mockResolvedValue({ revisionCounter: 8 });
+	it("returns retained versions for one record with a retention boundary", async () => {
+		const now = new Date("2026-07-24T12:00:00.000Z");
+		const boundary = new Date("2026-07-17T12:00:00.000Z");
+		const rows = [
+			{
+				id: 5,
+				userId: 9,
+				entityType: SyncedEntityType.BEAN,
+				serverId: 42,
+				clientId: "bean-1",
+				revision: 8,
+				operation: ChangeOperation.UPDATE,
+				accepted: false,
+				payload: { id: 42, name: "Ethiopia", revision: 8 },
+				createdAt: new Date("2026-07-20T12:00:00.000Z"),
+			},
+			{
+				id: 6,
+				userId: 9,
+				entityType: SyncedEntityType.BEAN,
+				serverId: 42,
+				clientId: "bean-1",
+				revision: 9,
+				operation: ChangeOperation.DELETE,
+				accepted: true,
+				payload: { id: 42, name: "Ethiopia", deletedAt: "2026-07-21" },
+				createdAt: new Date("2026-07-21T12:00:00.000Z"),
+			},
+		];
+		tx.change.findFirst.mockResolvedValue({
+			revision: 8,
+			createdAt: boundary,
+		});
 		tx.change.findMany.mockResolvedValue(rows);
 
-		await expect(service.history(7, 2, 9)).resolves.toEqual({
-			changes: rows,
-			nextCursor: 8,
+		await expect(
+			service.history(
+				0,
+				25,
+				9,
+				{ entityType: SyncedEntityType.BEAN, serverId: 42 },
+				now,
+			),
+		).resolves.toEqual({
+			changes: [
+				{
+					entityType: SyncedEntityType.BEAN,
+					serverId: 42,
+					clientId: "bean-1",
+					revision: 8,
+					operation: ChangeOperation.UPDATE,
+					accepted: false,
+					payload: { id: 42, name: "Ethiopia", revision: 8 },
+					createdAt: rows[0].createdAt,
+				},
+				{
+					entityType: SyncedEntityType.BEAN,
+					serverId: 42,
+					clientId: "bean-1",
+					revision: 9,
+					operation: ChangeOperation.DELETE,
+					accepted: true,
+					payload: { id: 42, name: "Ethiopia", deletedAt: "2026-07-21" },
+					createdAt: rows[1].createdAt,
+				},
+			],
+			nextCursor: 9,
 			hasMore: false,
-			fullResyncRequired: false,
+			retentionBoundary: boundary,
 		});
 		expect(tx.change.findMany).toHaveBeenCalledWith({
-			where: { userId: 9, revision: { gt: 7 } },
+			where: {
+				userId: 9,
+				entityType: SyncedEntityType.BEAN,
+				serverId: 42,
+				revision: { gt: 0 },
+				createdAt: { gte: boundary },
+			},
 			orderBy: { revision: "asc" },
-			take: 3,
+			take: 26,
 		});
+	});
+
+	it("excludes expired history at query time", async () => {
+		const now = new Date("2026-07-24T12:00:00.000Z");
+		const boundary = new Date("2026-07-17T12:00:00.000Z");
+		tx.change.findFirst.mockResolvedValue({ revision: 10 });
+		tx.change.findMany.mockResolvedValue([]);
+
+		await expect(service.history(0, 25, 9, undefined, now)).resolves.toEqual({
+			changes: [],
+			nextCursor: 0,
+			hasMore: false,
+			retentionBoundary: boundary,
+		});
+		expect(tx.change.findMany).toHaveBeenCalledWith({
+			where: {
+				userId: 9,
+				revision: { gt: 0 },
+				createdAt: { gte: boundary },
+			},
+			orderBy: { revision: "asc" },
+			take: 26,
+		});
+	});
+
+	it("rejects a partial record filter", () => {
+		expect(() =>
+			service.history(0, 25, 9, {
+				entityType: SyncedEntityType.BEAN,
+			}),
+		).toThrow("must be provided together");
 	});
 
 	it("applies a create, records one change, and increments revision", async () => {

@@ -1,8 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { PrismaService } from "../prisma/prisma.service";
-
-const CHANGE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+import { CHANGE_RETENTION_MS } from "./change-retention";
 
 @Injectable()
 export class ChangeRetentionService {

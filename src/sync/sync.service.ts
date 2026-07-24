@@ -8,6 +8,7 @@ import {
 import { Prisma } from "../generated/prisma/client";
 import { ChangeOperation, SyncedEntityType } from "../generated/prisma/enums";
 import { PrismaService } from "../prisma/prisma.service";
+import { CHANGE_RETENTION_MS } from "./change-retention";
 import { PushOperationDto } from "./dto/push-operation.dto";
 
 type PushResult = {
@@ -37,6 +38,11 @@ type SyncDelegate = {
 };
 
 type PushInput = PushOperationDto | PushOperationDto[];
+
+export type HistoryFilter = {
+	entityType?: SyncedEntityType;
+	serverId?: number;
+};
 
 type ApplyOutcome = {
 	row: SyncRow;
@@ -96,8 +102,103 @@ export class SyncService {
 		return this.listChanges(since, limit, userId, true);
 	}
 
-	history(since = 0, limit = DEFAULT_CHANGE_LIMIT, userId: number) {
-		return this.listChanges(since, limit, userId, false);
+	history(
+		since = 0,
+		limit = DEFAULT_CHANGE_LIMIT,
+		userId: number,
+		filter?: HistoryFilter,
+		now = new Date(),
+	) {
+		this.validateHistoryFilter(filter);
+		return this.listHistory(since, limit, userId, filter, now);
+	}
+
+	private listHistory(
+		since: number,
+		limit: number,
+		userId: number,
+		filter: HistoryFilter | undefined,
+		now: Date,
+	) {
+		if (
+			!Number.isInteger(since) ||
+			since < 0 ||
+			!Number.isInteger(limit) ||
+			limit < 1 ||
+			limit > MAX_CHANGE_LIMIT
+		) {
+			throw new BadRequestException("Invalid changes cursor or limit");
+		}
+
+		const retentionBoundary = new Date(now.getTime() - CHANGE_RETENTION_MS);
+		const where = {
+			userId,
+			...(filter?.entityType ? { entityType: filter.entityType } : {}),
+			...(filter?.serverId ? { serverId: filter.serverId } : {}),
+			revision: { gt: since },
+			createdAt: { gte: retentionBoundary },
+		};
+
+		return this.prisma.$transaction(
+			async (tx) => {
+				const rows = await tx.change.findMany({
+					where,
+					orderBy: { revision: "asc" },
+					take: limit + 1,
+				});
+				const page = rows.slice(0, limit);
+				const changes = page.map(
+					({
+						entityType,
+						serverId,
+						clientId,
+						revision,
+						operation,
+						accepted,
+						payload,
+						createdAt,
+					}) => ({
+						entityType,
+						serverId,
+						clientId,
+						revision,
+						operation,
+						accepted,
+						payload,
+						createdAt,
+					}),
+				);
+
+				return {
+					changes,
+					nextCursor: page[page.length - 1]?.revision ?? since,
+					hasMore: rows.length > limit,
+					retentionBoundary,
+				};
+			},
+			{ isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+		);
+	}
+
+	private validateHistoryFilter(filter?: HistoryFilter) {
+		if (!filter) return;
+		if (
+			filter.entityType !== undefined &&
+			!Object.values(SyncedEntityType).includes(filter.entityType)
+		) {
+			throw new BadRequestException("Invalid history entity type");
+		}
+		if (
+			filter.serverId !== undefined &&
+			(!Number.isInteger(filter.serverId) || filter.serverId < 1)
+		) {
+			throw new BadRequestException("Invalid history server ID");
+		}
+		if ((filter.entityType === undefined) !== (filter.serverId === undefined)) {
+			throw new BadRequestException(
+				"History entity type and server ID must be provided together",
+			);
+		}
 	}
 
 	private listChanges(

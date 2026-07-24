@@ -44,10 +44,13 @@ describe("SyncController", () => {
 		const request = { user: { sub: 9 } };
 		syncService.history.mockResolvedValue(result);
 
-		await expect(controller.history(7, 25, request as never)).resolves.toBe(
-			result,
-		);
+		await expect(
+			controller.history(7, 25, "BEAN", "42", request as never),
+		).resolves.toBe(result);
 		expect(authService.assertCsrf).toHaveBeenCalledWith(request, request.user);
-		expect(syncService.history).toHaveBeenCalledWith(7, 25, 9);
+		expect(syncService.history).toHaveBeenCalledWith(7, 25, 9, {
+			entityType: "BEAN",
+			serverId: 42,
+		});
 	});
 });
