@@ -37,6 +37,11 @@ Authenticated snapshot sync uses `GET /api/workspace/snapshot` and
 `PUT /api/workspace/snapshot` with `If-Match: <version>`. A stale, different
 snapshot returns `409`; retrying the same payload is idempotent.
 
+Snapshot JSON is `{ "schemaVersion": 1, "beans": [], "machines": [],
+"brews": [] }`. Beans and machines require a unique `localId`; brews use
+`beanLocalId` and `machineLocalId` for relationships. PUT validates all entity
+fields and replaces the complete snapshot transactionally.
+
 ## Project setup
 
 ```bash
