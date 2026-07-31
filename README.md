@@ -23,7 +23,19 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+NestJS API for Coffyyy's local-first snapshot sync.
+
+## Sync API
+
+`POST /api/auth/sync/enable` creates one workspace and returns a reusable sync
+code. `POST /api/auth/sync/pair` accepts that code repeatedly and creates a new
+cookie session for the same workspace after session expiry. Codes are hashed at
+rest and never expire; authenticated `POST /api/auth/sync/code/rotate`
+explicitly replaces one.
+
+Authenticated snapshot sync uses `GET /api/workspace/snapshot` and
+`PUT /api/workspace/snapshot` with `If-Match: <version>`. A stale, different
+snapshot returns `409`; retrying the same payload is idempotent.
 
 ## Project setup
 

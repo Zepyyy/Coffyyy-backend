@@ -156,12 +156,11 @@ model Session {
 }
 
 model SyncCode {
-    // One active, expiring pairing code per workspace; plaintext never persisted.
+    // One active, reusable pairing code per workspace; plaintext never persisted.
     id         String   @id @default(uuid())
     codeHash   String   @unique
     userId     Int      @unique
     createdAt  DateTime @default(now())
-    expiresAt  DateTime?
     user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 

@@ -72,7 +72,7 @@ export class AuthService {
 		const syncCode = await this.prisma.syncCode.findUnique({
 			where: { codeHash: this.hash(code) },
 		});
-		if (!syncCode || (syncCode.expiresAt && syncCode.expiresAt <= new Date())) {
+		if (!syncCode) {
 			throw new UnauthorizedException("Unable to pair workspace");
 		}
 
@@ -204,12 +204,12 @@ export class AuthService {
 	}
 
 	private async createSyncCode(userId: number, now: Date) {
-		// Return plaintext once for copy/paste; persist hash only.
+		// Return plaintext once for copy/paste; persist hash only. Code never expires.
 		const value = randomBytes(32).toString("base64url");
 		await this.prisma.syncCode.upsert({
 			where: { userId },
-			create: { userId, codeHash: this.hash(value), expiresAt: null },
-			update: { codeHash: this.hash(value), createdAt: now, expiresAt: null },
+			create: { userId, codeHash: this.hash(value) },
+			update: { codeHash: this.hash(value), createdAt: now },
 		});
 		return { value };
 	}

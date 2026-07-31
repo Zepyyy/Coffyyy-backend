@@ -8,13 +8,15 @@ import {
 	Req,
 	Res,
 } from "@nestjs/common";
+import { ApiOperation, ApiResponse } from "@nestjs/swagger";
 import type { Request, Response } from "express";
-import { AuthService, type SyncRequest } from "./auth.service";
+import { AuthService } from "./auth.service";
 import {
 	clearSessionCookies,
 	setCsrfCookie,
 	setSessionCookies,
 } from "./cookies";
+import { SyncRequestDto } from "./dto/sync-request.dto";
 import { Public } from "./public.decorator";
 import type { AuthenticatedRequest } from "./types/jwt-payload";
 
@@ -41,6 +43,8 @@ export class AuthController {
 	// Enable creates internal owner, session cookie, and one copyable sync code.
 	@Public()
 	@Post("sync/enable")
+	@ApiOperation({ summary: "Create a workspace and permanent sync code" })
+	@ApiResponse({ status: 201, description: "Workspace enrollment created" })
 	async enableSync(
 		@Req() request: Request,
 		@Res({ passthrough: true }) response: Response,
@@ -60,11 +64,16 @@ export class AuthController {
 		};
 	}
 
-	// Pair accepts code once per browser; code remains server-side hashed.
+	// Pair accepts the reusable code in any browser; code remains server-side hashed.
 	@Public()
 	@Post("sync/pair")
+	@ApiOperation({
+		summary: "Reconnect to an existing workspace",
+		description: "Reusable sync codes do not expire. Pairing creates a new session for the existing workspace.",
+	})
+	@ApiResponse({ status: 201, description: "Existing workspace session created" })
 	async pair(
-		@Body() body: SyncRequest,
+		@Body() body: SyncRequestDto,
 		@Req() request: Request,
 		@Res({ passthrough: true }) response: Response,
 	) {
@@ -103,6 +112,7 @@ export class AuthController {
 
 	// Rotation invalidates previous code through the per-workspace unique row.
 	@Post("sync/code/rotate")
+	@ApiOperation({ summary: "Explicitly replace the reusable sync code" })
 	rotateCode(@Req() request: AuthenticatedRequest) {
 		return this.authService.rotateSyncCode(request.user);
 	}

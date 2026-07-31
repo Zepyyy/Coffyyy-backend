@@ -11,7 +11,10 @@ http:
       value: "{{CSRF-TOKEN}}"
   body:
     type: json
-    data: ""
+    data: |-
+      {
+        "code": "{{SyncCode}}"
+      }
   auth: inherit
 
 settings:
