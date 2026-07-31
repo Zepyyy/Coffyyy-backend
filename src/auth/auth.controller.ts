@@ -69,9 +69,13 @@ export class AuthController {
 	@Post("sync/pair")
 	@ApiOperation({
 		summary: "Reconnect to an existing workspace",
-		description: "Reusable sync codes do not expire. Pairing creates a new session for the existing workspace.",
+		description:
+			"Reusable sync codes do not expire. Pairing creates a new session for the existing workspace.",
 	})
-	@ApiResponse({ status: 201, description: "Existing workspace session created" })
+	@ApiResponse({
+		status: 201,
+		description: "Existing workspace session created",
+	})
 	async pair(
 		@Body() body: SyncRequestDto,
 		@Req() request: Request,

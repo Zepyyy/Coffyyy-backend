@@ -77,17 +77,27 @@ describe("AuthService", () => {
 	});
 
 	it("stores only a hash when creating a sync code", async () => {
-		const value = await (service as unknown as {
-			createSyncCode: (userId: number, now: Date) => Promise<{ value: string }>;
-		}).createSyncCode(7, new Date("2026-07-31T00:00:00Z"));
+		const value = await (
+			service as unknown as {
+				createSyncCode: (
+					userId: number,
+					now: Date,
+				) => Promise<{ value: string }>;
+			}
+		).createSyncCode(7, new Date("2026-07-31T00:00:00Z"));
 
 		expect(value.value).toEqual(expect.any(String));
 		expect(prisma.syncCode.upsert).toHaveBeenCalledWith({
 			where: { userId: 7 },
 			create: { userId: 7, codeHash: expect.any(String) },
-			update: { codeHash: expect.any(String), createdAt: new Date("2026-07-31T00:00:00Z") },
+			update: {
+				codeHash: expect.any(String),
+				createdAt: new Date("2026-07-31T00:00:00Z"),
+			},
 		});
-		const args = prisma.syncCode.upsert.mock.calls[0][0] as { create: { codeHash: string } };
+		const args = prisma.syncCode.upsert.mock.calls[0][0] as {
+			create: { codeHash: string };
+		};
 		expect(args.create.codeHash).not.toBe(value.value);
 	});
 
@@ -97,17 +107,17 @@ describe("AuthService", () => {
 			expiresAt: new Date(0),
 		});
 
-		await expect(service.pair({ ip: "test" } as never, "old-code")).resolves.toEqual(
-			expect.objectContaining({ workspaceId: 11 }),
-		);
+		await expect(
+			service.pair({ ip: "test" } as never, "old-code"),
+		).resolves.toEqual(expect.objectContaining({ workspaceId: 11 }));
 	});
 
 	it("rejects invalid pairing codes", async () => {
 		prisma.syncCode.findUnique.mockResolvedValue(null);
 
-		await expect(service.pair({ ip: "test" } as never, "invalid")).rejects.toBeInstanceOf(
-			UnauthorizedException,
-		);
+		await expect(
+			service.pair({ ip: "test" } as never, "invalid"),
+		).rejects.toBeInstanceOf(UnauthorizedException);
 	});
 
 	it("allows pairing after the current session expires", async () => {
@@ -119,10 +129,12 @@ describe("AuthService", () => {
 		prisma.syncCode.findUnique.mockResolvedValue({ userId: 19 });
 
 		await expect(
-			service.validateSession({ headers: { cookie: "coffyyy_session=expired" } } as never),
+			service.validateSession({
+				headers: { cookie: "coffyyy_session=expired" },
+			} as never),
 		).rejects.toBeInstanceOf(UnauthorizedException);
-		await expect(service.pair({ ip: "test" } as never, "saved-code")).resolves.toEqual(
-			expect.objectContaining({ workspaceId: 19 }),
-		);
+		await expect(
+			service.pair({ ip: "test" } as never, "saved-code"),
+		).resolves.toEqual(expect.objectContaining({ workspaceId: 19 }));
 	});
 });

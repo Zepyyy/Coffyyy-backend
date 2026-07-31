@@ -53,7 +53,7 @@ async function bootstrap() {
 		],
 		methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 		credentials: true,
-		allowedHeaders: ["Content-Type", "X-CSRF-TOKEN"],
+		allowedHeaders: ["Content-Type", "X-CSRF-TOKEN", "If-match"],
 		exposedHeaders: ["X-CSRF-TOKEN"],
 		cacheControl: "no-store",
 		pragma: "no-cache",
