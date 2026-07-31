@@ -111,8 +111,18 @@ export class WorkspaceService {
 
 	private sameSnapshot(left: Snapshot, right: Snapshot) {
 		return (
-			JSON.stringify(this.canonicalSnapshot(left)) ===
-			JSON.stringify(this.canonicalSnapshot(right))
+			JSON.stringify(this.canonicalize(this.canonicalSnapshot(left))) ===
+			JSON.stringify(this.canonicalize(this.canonicalSnapshot(right)))
+		);
+	}
+
+	private canonicalize(value: unknown): unknown {
+		if (Array.isArray(value)) return value.map((item) => this.canonicalize(item));
+		if (!value || typeof value !== "object") return value;
+		return Object.fromEntries(
+			Object.entries(value)
+				.sort(([left], [right]) => left.localeCompare(right))
+				.map(([key, entry]) => [key, this.canonicalize(entry)]),
 		);
 	}
 

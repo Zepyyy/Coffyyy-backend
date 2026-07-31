@@ -132,6 +132,26 @@ describe("WorkspaceService", () => {
 		});
 	});
 
+	it("accepts an equivalent retry with reordered object keys", async () => {
+		const reordered = {
+			...snapshot,
+			beans: [
+				Object.fromEntries(
+					Object.entries(snapshot.beans[0]).reverse(),
+				) as Record<string, unknown>,
+			],
+		};
+		tx.user.findUnique.mockResolvedValue({
+			snapshot: reordered,
+			snapshotVersion: 2,
+		});
+		tx.user.updateMany.mockResolvedValue({ count: 0 });
+		await expect(service.putSnapshot(7, snapshot, "1")).resolves.toEqual({
+			snapshot: reordered,
+			version: 2,
+		});
+	});
+
 	it("rejects invalid relationships before update", async () => {
 		const invalid = {
 			...snapshot,

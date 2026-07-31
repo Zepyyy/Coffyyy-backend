@@ -25,7 +25,7 @@
 
 NestJS API for Coffyyy's local-first snapshot sync.
 
-## Sync API
+## Snapshot API
 
 `POST /api/auth/sync/enable` creates one workspace and returns a reusable sync
 code. `POST /api/auth/sync/pair` accepts that code repeatedly and creates a new
@@ -41,6 +41,13 @@ Snapshot JSON is `{ "schemaVersion": 1, "beans": [], "machines": [],
 "brews": [] }`. Beans and machines require a unique `localId`; brews use
 `beanLocalId` and `machineLocalId` for relationships. PUT validates all entity
 fields and replaces the complete snapshot transactionally.
+
+Legacy operation push, change-feed, recovery-history, migration-import, and
+entity CRUD routes are removed. Relational Bean, Machine, and Brew rows remain
+in the database for migration safety; snapshot APIs are the only data API.
+
+For duplicate-workspace review, see
+[`docs/duplicate-workspace-audit.md`](docs/duplicate-workspace-audit.md).
 
 ## Project setup
 

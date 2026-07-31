@@ -22,17 +22,13 @@ model Bean {
     dominantNote DominantNote @default(FRUITY)
     designation  Designation  @default(PURE_ORIGIN)
     finished     Boolean?
-    clientId     String?
-    revision     Int          @default(0)
-    deletedAt    DateTime?
     createdAt    DateTime     @default(now())
     updatedAt    DateTime     @updatedAt
     brews        Brew[]
     user         User?        @relation(fields: [userId], references: [id])
     userId       Int?
 
-    // Enforced by a partial index: soft-deleted beans may reuse their name.
-    @@unique([userId, clientId])
+    @@unique([name, userId])
     @@index([userId])
 }
 
@@ -49,9 +45,6 @@ model Brew {
     date           DateTime
     beanId         Int
     machineId      Int
-    clientId       String?
-    revision       Int      @default(0)
-    deletedAt      DateTime?
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt
     bean           Bean     @relation(fields: [beanId], references: [id], onDelete: Restrict)
@@ -59,7 +52,6 @@ model Brew {
     user           User?    @relation(fields: [userId], references: [id])
     userId         Int?
 
-    @@unique([userId, clientId])
     @@index([userId])
     @@index([beanId])
     @@index([machineId])
@@ -74,17 +66,13 @@ model Machine {
     model        String    @default("")
     grindRange   String    @default("")
     capacity     String    @default("")
-    clientId     String?
-    revision     Int       @default(0)
-    deletedAt    DateTime?
     createdAt    DateTime  @default(now())
     updatedAt    DateTime  @updatedAt
     brews        Brew[]
     user         User?     @relation(fields: [userId], references: [id])
     userId       Int?
 
-    // Enforced by a partial index: soft-deleted machines may reuse their name.
-    @@unique([userId, clientId])
+    @@unique([name, userId])
     @@index([userId])
 }
 
@@ -93,49 +81,15 @@ model User {
     id              Int             @id @default(autoincrement())
     username        String          @unique @default("")
     password        String
-    revisionCounter Int             @default(0)
     brews           Brew[]
     machines        Machine[]
     beans           Bean[]
-    importRuns      ImportRun[]
     sessions        Session[]
     syncCodes       SyncCode[]
-    changes         Change[]
-    pushOperations  PushOperation[]
     createdAt       DateTime        @default(now())
     updatedAt       DateTime        @updatedAt
     snapshotVersion Int             @default(0)
     snapshot        Json?
-}
-
-model Change {
-    // Append-only; source of truth for sync pull, tombstones, and 7-day recovery. See CONTEXT.md.
-    id         Int              @id @default(autoincrement())
-    userId     Int
-    entityType SyncedEntityType
-    serverId   Int
-    clientId   String?
-    revision   Int
-    operation  ChangeOperation
-    accepted   Boolean          @default(true)
-    payload    Json
-    createdAt  DateTime         @default(now())
-    user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-    @@unique([userId, revision])
-}
-
-model PushOperation {
-    // Dedup record for one outbox push; distinct from ImportRun (one-time migration import).
-    userId      Int
-    operationId String
-    payloadHash String
-    result      Json
-    revision    Int?
-    createdAt   DateTime @default(now())
-    user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-    @@id([userId, operationId])
 }
 
 model Session {
@@ -162,15 +116,6 @@ model SyncCode {
     userId     Int      @unique
     createdAt  DateTime @default(now())
     user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model ImportRun {
-    idempotencyKey String
-    userId         Int
-    createdAt      DateTime @default(now())
-    user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-    @@id([userId, idempotencyKey])
 }
 
 enum Status {
@@ -200,16 +145,4 @@ enum Botanic {
 enum Designation {
     PURE_ORIGIN
     BLEND
-}
-
-enum SyncedEntityType {
-    BEAN
-    BREW
-    MACHINE
-}
-
-enum ChangeOperation {
-    CREATE
-    UPDATE
-    DELETE
 }
