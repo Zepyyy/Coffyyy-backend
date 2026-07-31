@@ -30,7 +30,6 @@ interface RateLimitEntry {
 
 const SESSION_IDLE_MS = 30 * 24 * 60 * 60 * 1000;
 const SESSION_ABSOLUTE_MS = 90 * 24 * 60 * 60 * 1000;
-const SYNC_CODE_TTL_MS = 15 * 60 * 1000;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const MAX_PAIR_ATTEMPTS = 10;
 
@@ -42,7 +41,7 @@ export class AuthService {
 
 	async enableSync(
 		request: Request,
-	): Promise<SessionResult & { syncCode: string; syncCodeExpiresAt: Date }> {
+	): Promise<SessionResult & { syncCode: string }> {
 		this.checkRateLimit(`enable:${this.clientKey(request)}`, 5);
 		const now = new Date();
 		// User remains internal workspace owner; random password cannot start public auth.
@@ -58,7 +57,6 @@ export class AuthService {
 		return {
 			...session,
 			syncCode: syncCode.value,
-			syncCodeExpiresAt: syncCode.expiresAt,
 		};
 	}
 
@@ -74,7 +72,7 @@ export class AuthService {
 		const syncCode = await this.prisma.syncCode.findUnique({
 			where: { codeHash: this.hash(code) },
 		});
-		if (!syncCode || syncCode.expiresAt <= new Date()) {
+		if (!syncCode || (syncCode.expiresAt && syncCode.expiresAt <= new Date())) {
 			throw new UnauthorizedException("Unable to pair workspace");
 		}
 
@@ -143,7 +141,7 @@ export class AuthService {
 
 	async rotateSyncCode(user: SessionUser) {
 		const syncCode = await this.createSyncCode(user.sub, new Date());
-		return { syncCode: syncCode.value, expiresAt: syncCode.expiresAt };
+		return { syncCode: syncCode.value };
 	}
 
 	async logout(user: SessionUser) {
@@ -208,13 +206,12 @@ export class AuthService {
 	private async createSyncCode(userId: number, now: Date) {
 		// Return plaintext once for copy/paste; persist hash only.
 		const value = randomBytes(32).toString("base64url");
-		const expiresAt = new Date(now.getTime() + SYNC_CODE_TTL_MS);
 		await this.prisma.syncCode.upsert({
 			where: { userId },
-			create: { userId, codeHash: this.hash(value), expiresAt },
-			update: { codeHash: this.hash(value), createdAt: now, expiresAt },
+			create: { userId, codeHash: this.hash(value), expiresAt: null },
+			update: { codeHash: this.hash(value), createdAt: now, expiresAt: null },
 		});
-		return { value, expiresAt };
+		return { value };
 	}
 
 	private checkRateLimit(key: string, limit: number) {

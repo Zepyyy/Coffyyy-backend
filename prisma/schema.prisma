@@ -104,6 +104,8 @@ model User {
     pushOperations  PushOperation[]
     createdAt       DateTime        @default(now())
     updatedAt       DateTime        @updatedAt
+    snapshotVersion Int             @default(0)
+    snapshot        Json?
 }
 
 model Change {
@@ -159,7 +161,7 @@ model SyncCode {
     codeHash   String   @unique
     userId     Int      @unique
     createdAt  DateTime @default(now())
-    expiresAt  DateTime
+    expiresAt  DateTime?
     user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 

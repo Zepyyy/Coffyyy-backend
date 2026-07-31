@@ -56,7 +56,6 @@ export class AuthController {
 		return {
 			workspaceId: session.workspaceId,
 			syncCode: session.syncCode,
-			syncCodeExpiresAt: session.syncCodeExpiresAt,
 			csrfToken: session.csrfToken,
 		};
 	}
