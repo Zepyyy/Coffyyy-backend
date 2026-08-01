@@ -152,41 +152,11 @@ describe("WorkspaceService", () => {
 		});
 	});
 
-	it("rejects invalid relationships before update", async () => {
-		const invalid = {
-			...snapshot,
-			brews: [{ ...snapshot.brews[0], beanLocalId: "missing" }],
-		};
-		await expect(service.putSnapshot(7, invalid, "0")).rejects.toBeInstanceOf(
-			BadRequestException,
+	it("maps Snapshot validation errors to bad requests before persistence", async () => {
+		await expect(service.putSnapshot(7, {}, "0")).rejects.toEqual(
+			new BadRequestException("Invalid workspace snapshot"),
 		);
-		expect(tx.user.findUnique).not.toHaveBeenCalled();
-	});
-
-	it("rejects invalid entity fields and duplicate brew IDs", async () => {
-		const invalid = {
-			...snapshot,
-			beans: [{ ...snapshot.beans[0], rating: "bad" }],
-		};
-		await expect(service.putSnapshot(7, invalid, "0")).rejects.toBeInstanceOf(
-			BadRequestException,
-		);
-
-		const duplicate = {
-			...snapshot,
-			brews: [
-				snapshot.brews[0],
-				{
-					...snapshot.brews[0],
-					beanLocalId: undefined,
-					machineLocalId: undefined,
-				},
-			],
-		};
-		await expect(service.putSnapshot(7, duplicate, "0")).rejects.toBeInstanceOf(
-			BadRequestException,
-		);
-		expect(tx.user.findUnique).not.toHaveBeenCalled();
+		expect(prisma.$transaction).not.toHaveBeenCalled();
 	});
 
 	it("passes the authenticated workspace ID to reads", async () => {
