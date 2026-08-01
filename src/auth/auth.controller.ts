@@ -10,7 +10,6 @@ import {
 } from "@nestjs/common";
 import { ApiOperation, ApiResponse } from "@nestjs/swagger";
 import type { Request, Response } from "express";
-import { AuthService } from "./auth.service";
 import {
 	clearSessionCookies,
 	setCsrfCookie,
@@ -18,7 +17,10 @@ import {
 } from "./cookies";
 import { SyncRequestDto } from "./dto/sync-request.dto";
 import { Public } from "./public.decorator";
+import { RequestProtection } from "./request-protection";
+import { SessionLifecycle } from "./session-lifecycle";
 import type { AuthenticatedRequest } from "./types/jwt-payload";
+import { WorkspaceEnrollment } from "./workspace-enrollment";
 
 const SESSION_COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
@@ -26,7 +28,11 @@ const SESSION_COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 // No username/password login or signup routes exist by design.
 @Controller("auth")
 export class AuthController {
-	constructor(private readonly authService: AuthService) {}
+	constructor(
+		private readonly protection: RequestProtection,
+		private readonly sessions: SessionLifecycle,
+		private readonly enrollment: WorkspaceEnrollment,
+	) {}
 
 	// Bootstrap public token, or refresh the token for an existing session.
 	@Public()
@@ -35,7 +41,7 @@ export class AuthController {
 		@Req() request: Request,
 		@Res({ passthrough: true }) response: Response,
 	) {
-		const csrfToken = await this.authService.refreshCsrf(request);
+		const csrfToken = await this.protection.refreshCsrf(request.headers.cookie);
 		setCsrfCookie(response, csrfToken, SESSION_COOKIE_MAX_AGE_SECONDS);
 		return { csrfRequired: true, csrfToken };
 	}
@@ -49,8 +55,11 @@ export class AuthController {
 		@Req() request: Request,
 		@Res({ passthrough: true }) response: Response,
 	) {
-		this.authService.assertPublicCsrf(request);
-		const session = await this.authService.enableSync(request);
+		this.protection.assertPublic(
+			request.headers.cookie,
+			request.headers["x-csrf-token"],
+		);
+		const session = await this.enrollment.enable(this.clientKey(request));
 		setSessionCookies(
 			response,
 			session.sessionToken,
@@ -81,8 +90,14 @@ export class AuthController {
 		@Req() request: Request,
 		@Res({ passthrough: true }) response: Response,
 	) {
-		this.authService.assertPublicCsrf(request);
-		const session = await this.authService.pair(request, body?.code);
+		this.protection.assertPublic(
+			request.headers.cookie,
+			request.headers["x-csrf-token"],
+		);
+		const session = await this.enrollment.pair(
+			this.clientKey(request),
+			body?.code,
+		);
 		setSessionCookies(
 			response,
 			session.sessionToken,
@@ -100,7 +115,7 @@ export class AuthController {
 	// Guard resolves current workspace from HttpOnly session cookie.
 	@Get("sync/session")
 	getSession(@Req() request: AuthenticatedRequest) {
-		return this.authService.getSession(request.user);
+		return this.sessions.inspect(request.user);
 	}
 
 	// Logout revokes only current session; revoke endpoint below handles all sessions.
@@ -110,7 +125,7 @@ export class AuthController {
 		@Req() request: AuthenticatedRequest,
 		@Res({ passthrough: true }) response: Response,
 	) {
-		await this.authService.logout(request.user);
+		await this.sessions.logout(request.user);
 		clearSessionCookies(response);
 	}
 
@@ -118,7 +133,7 @@ export class AuthController {
 	@Post("sync/code/rotate")
 	@ApiOperation({ summary: "Explicitly replace the reusable sync code" })
 	rotateCode(@Req() request: AuthenticatedRequest) {
-		return this.authService.rotateSyncCode(request.user);
+		return this.enrollment.rotateCode(request.user);
 	}
 
 	// Revoke all sessions, then clear current browser cookies.
@@ -128,7 +143,11 @@ export class AuthController {
 		@Req() request: AuthenticatedRequest,
 		@Res({ passthrough: true }) response: Response,
 	) {
-		await this.authService.revokeAllSessions(request.user);
+		await this.sessions.revokeAll(request.user);
 		clearSessionCookies(response);
+	}
+
+	private clientKey(request: Request) {
+		return request.ip || request.socket.remoteAddress || "unknown";
 	}
 }

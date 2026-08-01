@@ -1,7 +1,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AuthController } from "./auth.controller";
 import { AuthGuard } from "./auth.guard";
-import { AuthService } from "./auth.service";
+import { RequestProtection } from "./request-protection";
+import { SessionLifecycle } from "./session-lifecycle";
+import { WorkspaceEnrollment } from "./workspace-enrollment";
 
 describe("AuthController", () => {
 	let controller: AuthController;
@@ -10,7 +12,9 @@ describe("AuthController", () => {
 		const module: TestingModule = await Test.createTestingModule({
 			controllers: [AuthController],
 			providers: [
-				{ provide: AuthService, useValue: {} },
+				{ provide: RequestProtection, useValue: {} },
+				{ provide: SessionLifecycle, useValue: {} },
+				{ provide: WorkspaceEnrollment, useValue: {} },
 				{ provide: AuthGuard, useValue: {} },
 			],
 		}).compile();

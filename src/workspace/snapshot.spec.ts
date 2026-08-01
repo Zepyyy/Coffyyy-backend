@@ -83,16 +83,16 @@ describe("SnapshotDocument", () => {
 				...validSnapshot,
 				brews: [validSnapshot.brews[0], { ...validSnapshot.brews[0] }],
 			}),
-		).toThrow(new SnapshotValidationError("Duplicate or missing brew local ID"));
+		).toThrow(
+			new SnapshotValidationError("Duplicate or missing brew local ID"),
+		);
 	});
 
 	it("compares equivalent snapshots regardless of row or key order", () => {
 		const reordered = {
 			...validSnapshot,
 			beans: [
-				Object.fromEntries(
-					Object.entries(validSnapshot.beans[0]).reverse(),
-				),
+				Object.fromEntries(Object.entries(validSnapshot.beans[0]).reverse()),
 			],
 		};
 		expect(document.equivalent(validSnapshot, reordered)).toBe(true);

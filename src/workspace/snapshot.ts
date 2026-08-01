@@ -224,7 +224,9 @@ export class SnapshotDocument {
 
 	private uniqueIds(ids: string[], entity: string) {
 		if (ids.some((id) => !id) || new Set(ids).size !== ids.length)
-			throw new SnapshotValidationError(`Duplicate or missing ${entity} local ID`);
+			throw new SnapshotValidationError(
+				`Duplicate or missing ${entity} local ID`,
+			);
 		return new Set(ids);
 	}
 }

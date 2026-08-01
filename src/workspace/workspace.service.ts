@@ -6,9 +6,9 @@ import {
 import type { InputJsonValue } from "../generated/prisma/internal/prismaNamespace";
 import { PrismaService } from "../prisma/prisma.service";
 import {
+	type Snapshot,
 	SnapshotDocument,
 	SnapshotValidationError,
-	type Snapshot,
 } from "./snapshot";
 
 @Injectable()
@@ -55,7 +55,10 @@ export class WorkspaceService {
 				});
 				if (
 					latest &&
-					this.sameSnapshot(this.snapshotDocument.fromStored(latest.snapshot), snapshot)
+					this.sameSnapshot(
+						this.snapshotDocument.fromStored(latest.snapshot),
+						snapshot,
+					)
 				)
 					return {
 						snapshot: this.snapshotDocument.fromStored(latest.snapshot),

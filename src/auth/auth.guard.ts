@@ -6,8 +6,9 @@ import {
 	UnauthorizedException,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { AuthService } from "./auth.service";
 import { IS_PUBLIC_KEY } from "./public.decorator";
+import { RequestProtection } from "./request-protection";
+import { SessionLifecycle } from "./session-lifecycle";
 import type { AuthenticatedRequest } from "./types/jwt-payload";
 
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -15,7 +16,8 @@ const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 @Injectable()
 export class AuthGuard implements CanActivate {
 	constructor(
-		private readonly authService: AuthService,
+		private readonly protection: RequestProtection,
+		private readonly sessions: SessionLifecycle,
 		private readonly reflector: Reflector,
 	) {}
 
@@ -30,10 +32,14 @@ export class AuthGuard implements CanActivate {
 		const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
 		try {
 			// Session sub becomes sole owner source for every protected controller.
-			request.user = await this.authService.validateSession(request);
+			request.user = await this.sessions.validate(request.headers.cookie);
 			if (MUTATING_METHODS.has(request.method)) {
 				// Cookies authenticate; header token blocks cross-site mutations.
-				await this.authService.assertCsrf(request, request.user);
+				await this.protection.assertMutation(
+					request.headers.cookie,
+					request.headers["x-csrf-token"],
+					request.user,
+				);
 			}
 			return true;
 		} catch (error) {
