@@ -8,7 +8,7 @@ import {
 import * as bcrypt from "bcrypt";
 import { PrismaService } from "../prisma/prisma.service";
 import { SessionLifecycle, type SessionResult } from "./session-lifecycle";
-import type { SessionUser } from "./types/jwt-payload";
+import type { SessionUser } from "./types/session-user";
 
 interface RateLimitEntry {
 	count: number;

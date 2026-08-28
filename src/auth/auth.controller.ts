@@ -19,7 +19,7 @@ import { SyncRequestDto } from "./dto/sync-request.dto";
 import { Public } from "./public.decorator";
 import { RequestProtection } from "./request-protection";
 import { SessionLifecycle } from "./session-lifecycle";
-import type { AuthenticatedRequest } from "./types/jwt-payload";
+import type { AuthenticatedRequest } from "./types/session-user";
 import { WorkspaceEnrollment } from "./workspace-enrollment";
 
 const SESSION_COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;

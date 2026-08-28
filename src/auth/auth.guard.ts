@@ -9,7 +9,7 @@ import { Reflector } from "@nestjs/core";
 import { IS_PUBLIC_KEY } from "./public.decorator";
 import { RequestProtection } from "./request-protection";
 import { SessionLifecycle } from "./session-lifecycle";
-import type { AuthenticatedRequest } from "./types/jwt-payload";
+import type { AuthenticatedRequest } from "./types/session-user";
 
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 

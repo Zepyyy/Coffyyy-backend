@@ -7,7 +7,7 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import { CSRF_COOKIE, getCookie } from "./cookies";
 import { SessionLifecycle } from "./session-lifecycle";
-import type { SessionUser } from "./types/jwt-payload";
+import type { SessionUser } from "./types/session-user";
 
 @Injectable()
 export class RequestProtection {

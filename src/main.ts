@@ -46,11 +46,7 @@ async function bootstrap() {
 	// Keep API paths stable for Railway and frontend clients.
 	app.setGlobalPrefix("api");
 	app.enableCors({
-		origin: [
-			"http://localhost:5173",
-			"https://preview.quentinstubecki.fr",
-			"https://coffyyy.quentinstubecki.fr",
-		],
+		origin: ["https://coffyyy.quentinstubecki.fr"],
 		methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 		credentials: true,
 		allowedHeaders: ["Content-Type", "X-CSRF-TOKEN", "If-match"],

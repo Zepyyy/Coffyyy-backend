@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { getCookie, SESSION_COOKIE } from "./cookies";
-import type { SessionUser } from "./types/jwt-payload";
+import type { SessionUser } from "./types/session-user";
 
 export interface SessionResult {
 	sessionToken: string;
