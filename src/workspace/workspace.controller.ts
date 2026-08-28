@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Headers, Put, Req } from "@nestjs/common";
-import type { AuthenticatedRequest } from "../auth/types/jwt-payload";
+import { AuthenticatedRequest } from "src/auth/types/session-user";
 import { WorkspaceService } from "./workspace.service";
 
 @Controller("workspace")
