@@ -1,0 +1,24 @@
+info:
+  name: Pair
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{BaseUrl}}/api/auth/sync/pair"
+  headers:
+    - name: x-csrf-token
+      value: "{{CSRF-TOKEN}}"
+  body:
+    type: json
+    data: |-
+      {
+        "code": "{{SyncCode}}"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

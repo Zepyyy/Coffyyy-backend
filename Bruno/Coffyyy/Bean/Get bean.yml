@@ -5,7 +5,7 @@ info:
 
 http:
   method: get
-  url: http://localhost:3000/api/bean/3
+  url: "{{BaseUrl}}/api/bean/3"
   headers:
     - name: accept
       value: application/json

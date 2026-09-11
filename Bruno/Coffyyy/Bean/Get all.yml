@@ -5,7 +5,10 @@ info:
 
 http:
   method: GET
-  url: http://coffyyy-backend-production.up.railway.app:8080/api/bean
+  url: "{{BaseUrl}}/api/bean"
+  headers:
+    - name: X-CSRF-TOKEN
+      value: "{{CSRF-TOKEN}}"
   auth: inherit
 
 settings:

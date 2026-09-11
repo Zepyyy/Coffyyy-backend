@@ -5,10 +5,12 @@ info:
 
 http:
   method: delete
-  url: http://localhost:3000/api/brew/5
+  url: "{{BaseUrl}}/api/brew/1"
   headers:
     - name: accept
       value: "*/*"
+    - name: X-CSRF-TOKEN
+      value: "{{CSRF-TOKEN}}"
   auth: inherit
 
 settings:
