@@ -77,6 +77,42 @@ describe("SnapshotDocument", () => {
 		).toThrow(new SnapshotValidationError("Invalid brew relationship"));
 	});
 
+	it("strips fields outside the contract without mutating input", () => {
+		const input = {
+			...validSnapshot,
+			beans: [{ ...validSnapshot.beans[0], serverRevision: 3 }],
+		};
+		expect(document.validate(input).beans[0]).not.toHaveProperty(
+			"serverRevision",
+		);
+		expect(input.beans[0]).toHaveProperty("serverRevision", 3);
+	});
+
+	it("reports missing fields and bad enums by field name", () => {
+		const { name: _name, ...nameless } = validSnapshot.beans[0];
+		expect(() =>
+			document.validate({ ...validSnapshot, beans: [nameless] }),
+		).toThrow(new SnapshotValidationError("Invalid name"));
+		expect(() =>
+			document.validate({
+				...validSnapshot,
+				beans: [{ ...validSnapshot.beans[0], designation: "Pure origin" }],
+			}),
+		).toThrow(new SnapshotValidationError("Invalid designation"));
+		expect(() =>
+			document.validate({ ...validSnapshot, schemaVersion: 2 }),
+		).toThrow(new SnapshotValidationError("Invalid workspace snapshot"));
+	});
+
+	it("accepts an unset dominant note", () => {
+		expect(() =>
+			document.validate({
+				...validSnapshot,
+				beans: [{ ...validSnapshot.beans[0], dominantNote: "" }],
+			}),
+		).not.toThrow();
+	});
+
 	it("rejects duplicate local IDs", () => {
 		expect(() =>
 			document.validate({

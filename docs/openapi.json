@@ -352,6 +352,16 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid snapshot data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
@@ -367,16 +377,6 @@
           },
           "409": {
             "description": "Snapshot version conflict - data has changed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid snapshot data",
             "content": {
               "application/json": {
                 "schema": {
@@ -574,37 +574,30 @@
       },
       "Snapshot": {
         "type": "object",
-        "description": "Complete workspace data structure",
+        "description": "Complete workspace data",
+        "additionalProperties": false,
         "properties": {
           "schemaVersion": {
             "type": "number",
-            "description": "Schema version for validation",
-            "enum": [1],
-            "example": 1
+            "enum": [1]
           },
           "beans": {
             "type": "array",
-            "description": "Array of coffee bean records",
             "items": {
               "$ref": "#/components/schemas/Bean"
-            },
-            "example": []
+            }
           },
           "machines": {
             "type": "array",
-            "description": "Array of machine records",
             "items": {
               "$ref": "#/components/schemas/Machine"
-            },
-            "example": []
+            }
           },
           "brews": {
             "type": "array",
-            "description": "Array of brew records",
             "items": {
               "$ref": "#/components/schemas/Brew"
-            },
-            "example": []
+            }
           }
         },
         "required": ["schemaVersion", "beans", "machines", "brews"]
@@ -626,212 +619,193 @@
       "Bean": {
         "type": "object",
         "description": "Coffee bean record",
+        "additionalProperties": false,
         "properties": {
           "localId": {
             "type": "string",
-            "description": "Unique local identifier",
-            "example": "bean-001"
+            "description": "Stable client-generated ID, unique per entity type"
           },
           "name": {
-            "type": "string",
-            "description": "Name of the coffee bean",
-            "example": "Ethiopian Yirgacheffe"
+            "type": "string"
           },
           "rating": {
             "type": "number",
-            "description": "Bean rating (0-5 scale)",
-            "minimum": 0,
-            "maximum": 5,
-            "example": 4.5
+            "description": "0-5"
           },
           "roastLevel": {
-            "type": "number",
-            "description": "Roast level",
-            "example": 3
+            "type": "number"
           },
           "origin": {
             "type": "array",
-            "description": "Origin countries/regions",
             "items": {
               "type": "string"
-            },
-            "example": ["Ethiopia", "Yirgacheffe"]
+            }
           },
           "process": {
             "type": "array",
-            "description": "Processing methods",
             "items": {
               "type": "string"
-            },
-            "example": ["Washed"]
+            }
           },
           "variety": {
             "type": "array",
-            "description": "Coffee varieties",
             "items": {
               "type": "string"
-            },
-            "example": ["Heirloom"]
+            }
           },
           "brand": {
-            "type": "string",
-            "description": "Brand or roaster name",
-            "example": "Counter Culture"
+            "type": "string"
           },
           "flavors": {
             "type": "array",
-            "description": "Flavor notes",
             "items": {
               "type": "string"
-            },
-            "example": ["Floral", "Fruity", "Tea-like"]
+            }
           },
           "status": {
             "type": "string",
-            "description": "Bean status",
-            "enum": ["Excellent", "Good", "Mid", "Horrible", "New", ""],
-            "example": "Excellent"
+            "enum": ["Excellent", "Good", "Mid", "Horrible", "New", ""]
           },
           "dominantNote": {
             "type": "string",
-            "description": "Primary flavor characteristic",
-            "enum": ["Fruity", "Nutty", "Floral", "Sweet", "Sour", "Spices", "Roasted", "Green", ""],
-            "example": "Floral"
+            "enum": [
+              "Fruity",
+              "Nutty",
+              "Floral",
+              "Sweet",
+              "Sour",
+              "Spices",
+              "Roasted",
+              "Green",
+              ""
+            ]
           },
           "botanic": {
             "type": "string",
-            "description": "Coffee species",
-            "enum": ["Arabica", "Robusta", ""],
-            "example": "Arabica"
+            "enum": ["Arabica", "Robusta", ""]
           },
           "designation": {
             "type": "string",
-            "description": "Coffee designation",
-            "enum": ["Pure Origin", "Blend", ""],
-            "example": "Pure Origin"
+            "enum": ["Pure Origin", "Blend", ""]
           },
           "finished": {
-            "type": "boolean",
-            "description": "Whether the bean is finished/use",
-            "example": false
+            "type": "boolean"
           }
         },
-        "required": ["localId", "name", "rating", "roastLevel", "origin", "process", "variety", "brand", "flavors", "status", "dominantNote", "botanic", "designation", "finished"]
+        "required": [
+          "localId",
+          "name",
+          "rating",
+          "roastLevel",
+          "origin",
+          "process",
+          "variety",
+          "brand",
+          "flavors",
+          "status",
+          "dominantNote",
+          "botanic",
+          "designation",
+          "finished"
+        ]
       },
       "Machine": {
         "type": "object",
         "description": "Coffee machine or equipment record",
+        "additionalProperties": false,
         "properties": {
           "localId": {
             "type": "string",
-            "description": "Unique local identifier",
-            "example": "machine-001"
+            "description": "Stable client-generated ID, unique per entity type"
           },
           "name": {
-            "type": "string",
-            "description": "Name of the machine",
-            "example": "Rancilio Silvia"
+            "type": "string"
           },
           "brand": {
-            "type": "string",
-            "description": "Brand name",
-            "example": "Rancilio"
+            "type": "string"
           },
           "type": {
-            "type": "string",
-            "description": "Machine type",
-            "example": "Espresso Machine"
+            "type": "string"
           },
           "purchaseDate": {
-            "type": "string",
-            "description": "Date of purchase",
-            "example": "2024-01-01"
+            "type": "string"
           },
           "model": {
-            "type": "string",
-            "description": "Model name",
-            "example": "Silvia Pro"
+            "type": "string"
           },
           "grindRange": {
-            "type": "string",
-            "description": "Grind size range supported",
-            "example": "Espresso to French Press"
+            "type": "string"
           },
           "capacity": {
-            "type": "string",
-            "description": "Capacity specification",
-            "example": "2L"
+            "type": "string"
           }
         },
-        "required": ["localId", "name", "brand", "type", "purchaseDate", "model", "grindRange", "capacity"]
+        "required": [
+          "localId",
+          "name",
+          "brand",
+          "type",
+          "purchaseDate",
+          "model",
+          "grindRange",
+          "capacity"
+        ]
       },
       "Brew": {
         "type": "object",
-        "description": "Coffee brew record",
+        "description": "Coffee brew record; bean/machine reference snapshot localIds",
+        "additionalProperties": false,
         "properties": {
           "localId": {
             "type": "string",
-            "description": "Unique local identifier",
-            "example": "brew-001"
-          },
-          "beanWeight": {
-            "type": "number",
-            "description": "Weight of coffee beans in grams",
-            "example": 18.0
-          },
-          "espressoWeight": {
-            "type": "number",
-            "description": "Weight of espresso output in grams",
-            "example": 36.0
-          },
-          "grindSize": {
-            "type": "number",
-            "description": "Grind size setting",
-            "example": 8
-          },
-          "overallRating": {
-            "type": "number",
-            "description": "Overall rating of the brew",
-            "example": 4.5
-          },
-          "tasteScore": {
-            "type": "number",
-            "description": "Taste score",
-            "example": 8
-          },
-          "strengthScore": {
-            "type": "number",
-            "description": "Strength score",
-            "example": 7
-          },
-          "extractionTime": {
-            "type": "string",
-            "description": "Time taken for extraction",
-            "example": "28"
-          },
-          "flow": {
-            "type": "string",
-            "description": "Flow rate or profile",
-            "example": "Standard"
-          },
-          "date": {
-            "type": "string",
-            "description": "Date of the brew (ISO date string)",
-            "format": "date",
-            "example": "2024-01-01"
+            "description": "Stable client-generated ID, unique per entity type"
           },
           "beanLocalId": {
             "type": "string",
-            "description": "Reference to the bean used",
-            "example": "bean-001"
+            "description": "Bean localId"
           },
           "machineLocalId": {
             "type": "string",
-            "description": "Reference to the machine used",
-            "example": "machine-001"
+            "description": "Machine localId"
+          },
+          "beanWeight": {
+            "type": "number"
+          },
+          "espressoWeight": {
+            "type": "number"
+          },
+          "grindSize": {
+            "type": "number"
+          },
+          "overallRating": {
+            "type": "number"
+          },
+          "tasteScore": {
+            "type": "number",
+            "description": "-5 sour/under-extracted to +5 bitter/over-extracted"
+          },
+          "strengthScore": {
+            "type": "number",
+            "description": "-5 weak to +5 strong"
+          },
+          "extractionTime": {
+            "type": "string"
+          },
+          "flow": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "description": "ISO 8601 date-time"
           }
         },
-        "required": ["localId", "beanWeight", "espressoWeight", "grindSize", "date"]
+        "required": [
+          "localId",
+          "beanWeight",
+          "espressoWeight",
+          "grindSize",
+          "date"
+        ]
       },
       "ErrorResponse": {
         "type": "object",

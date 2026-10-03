@@ -43,8 +43,12 @@ Snapshot JSON is `{ "schemaVersion": 1, "beans": [], "machines": [],
 fields and replaces the complete snapshot transactionally.
 
 Legacy operation push, change-feed, recovery-history, migration-import, and
-entity CRUD routes are removed. Relational Bean, Machine, and Brew rows remain
-in the database for migration safety; snapshot APIs are the only data API.
+entity CRUD routes are removed, as are the relational Bean, Machine, and Brew
+tables; the snapshot is the only storage and data API.
+
+The snapshot contract is `src/workspace/snapshot.schema.ts`. After changing it,
+run `bun run openapi` to update `docs/openapi.json`, then regenerate the
+frontend types (`bun run gen:api` in the frontend).
 
 For duplicate-workspace review, see
 [`docs/duplicate-workspace-audit.md`](docs/duplicate-workspace-audit.md).
