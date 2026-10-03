@@ -10,20 +10,17 @@ IDs, then run this read-only report against the production database:
 ```sql
 SELECT
   u.id,
-  u.created_at,
-  u.snapshot_version,
-  COUNT(DISTINCT s.id) FILTER (WHERE s.revoked_at IS NULL) AS active_sessions,
+  u."createdAt",
+  u."snapshotVersion",
+  COUNT(s.id) FILTER (WHERE s."revokedAt" IS NULL) AS active_sessions,
   (u.snapshot IS NOT NULL) AS has_snapshot,
-  COUNT(DISTINCT b.id) AS bean_rows,
-  COUNT(DISTINCT m.id) AS machine_rows,
-  COUNT(DISTINCT w.id) AS brew_rows
+  jsonb_array_length(COALESCE(u.snapshot -> 'beans', '[]')) AS beans,
+  jsonb_array_length(COALESCE(u.snapshot -> 'machines', '[]')) AS machines,
+  jsonb_array_length(COALESCE(u.snapshot -> 'brews', '[]')) AS brews
 FROM "User" u
-LEFT JOIN "Session" s ON s.user_id = u.id
-LEFT JOIN "Bean" b ON b.user_id = u.id
-LEFT JOIN "Machine" m ON m.user_id = u.id
-LEFT JOIN "Brew" w ON w.user_id = u.id
+LEFT JOIN "Session" s ON s."userId" = u.id
 WHERE u.id = ANY($1::int[])
-GROUP BY u.id, u.created_at, u.snapshot_version, u.snapshot;
+GROUP BY u.id;
 ```
 
 `$1` is supplied by the operator. The report is evidence for an explicit

@@ -9,7 +9,7 @@ snapshot sync.
 
 **Snapshot**: Complete JSON document containing beans, machines, brews, stable
 local IDs, and brew relationships. Snapshot PUT replaces cloud state atomically
-with an `If-Match` version guard.
+with an `If-Match` version guard. Fields outside the schema are stripped.
 
 **Sync code**: Reusable reconnect credential. Plaintext exists only in the
 request/response path; the database stores its hash.
@@ -25,6 +25,11 @@ request/response path; the database stores its hash.
   `409 Conflict`.
 - Legacy operation push, change feeds, recovery history, migration import,
   entity CRUD routes, revisions, tombstones, and retention are removed.
-- Existing User, Bean, Brew, and Machine rows survive the cleanup migration.
-  Duplicate workspaces are never deleted automatically; use the documented
+- No relational Bean/Brew/Machine tables: the server never queries workspace
+  data, so the snapshot is its only storage. Revisit if cross-workspace
+  features (sharing, server-side stats) appear.
+- `src/workspace/snapshot.schema.ts` is the snapshot contract. `bun run
+  openapi` copies it into `docs/openapi.json`; the frontend generates its
+  types from that file. A spec fails if the two drift.
+- Duplicate workspaces are never deleted automatically; use the documented
   owner-scoped read-only audit before any explicit cleanup.
