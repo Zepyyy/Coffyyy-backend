@@ -1,0 +1,47 @@
+info:
+  name: Health check
+  type: http
+  seq: 1
+  tags:
+    - Health
+
+http:
+  method: GET
+  url: "{{baseUrl}}/health"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
+
+examples:
+  - name: 200 Response
+    description: Service health status
+    request:
+      url: "{{baseUrl}}/health"
+      method: GET
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "status": "healthy",
+            "timestamp": "2025-01-01T00:00:00.000Z",
+            "version": "0.2.0",
+            "checks": {
+              "database": {
+                "status": "up",
+                "message": null
+              }
+            }
+          }
+
+docs: Returns the current health status of the service including database connectivity. This is the proper health check endpoint.

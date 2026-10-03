@@ -1,0 +1,83 @@
+info:
+  name: Get workspace snapshot
+  type: http
+  seq: 1
+  tags:
+    - Workspace
+
+http:
+  method: GET
+  url: "{{baseUrl}}/workspace/snapshot"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
+
+examples:
+  - name: 200 Response
+    description: Current workspace snapshot
+    request:
+      url: "{{baseUrl}}/workspace/snapshot"
+      method: GET
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "snapshot": {
+              "schemaVersion": 1,
+              "beans": [],
+              "machines": [],
+              "brews": []
+            },
+            "version": 0
+          }
+  - name: 401 Response
+    description: Unauthorized - no valid session
+    request:
+      url: "{{baseUrl}}/workspace/snapshot"
+      method: GET
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "statusCode": 401,
+            "message": "Unauthorized",
+            "error": "Unauthorized"
+          }
+  - name: 404 Response
+    description: Workspace not found
+    request:
+      url: "{{baseUrl}}/workspace/snapshot"
+      method: GET
+    response:
+      status: 404
+      statusText: Not Found
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "statusCode": 400,
+            "message": "Bad Request",
+            "error": "Bad Request"
+          }
+
+docs: Returns the current workspace snapshot containing beans, machines, and brews. The snapshot includes version information for optimistic concurrency control.

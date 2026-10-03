@@ -1,0 +1,52 @@
+info:
+  name: Revoke all sessions
+  type: http
+  seq: 7
+  tags:
+    - Authentication
+
+http:
+  method: POST
+  url: "{{baseUrl}}/auth/sync/sessions/revoke"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
+
+examples:
+  - name: 204 Response
+    description: All sessions revoked
+    request:
+      url: "{{baseUrl}}/auth/sync/sessions/revoke"
+      method: POST
+    response:
+      status: 204
+      statusText: No Content
+      body:
+        type: text
+        data: ""
+  - name: 401 Response
+    description: Unauthorized - no valid session
+    request:
+      url: "{{baseUrl}}/auth/sync/sessions/revoke"
+      method: POST
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "statusCode": 401,
+            "message": "Unauthorized",
+            "error": "Unauthorized"
+          }
+
+docs: Revokes all active sessions for the current workspace, then clears the current browser cookies.

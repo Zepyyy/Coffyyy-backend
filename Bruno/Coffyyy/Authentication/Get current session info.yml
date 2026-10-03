@@ -1,0 +1,60 @@
+info:
+  name: Get current session info
+  type: http
+  seq: 4
+  tags:
+    - Authentication
+
+http:
+  method: GET
+  url: "{{baseUrl}}/auth/sync/session"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
+
+examples:
+  - name: 200 Response
+    description: Current session information
+    request:
+      url: "{{baseUrl}}/auth/sync/session"
+      method: GET
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "sub": 1,
+            "sessionId": "session-uuid-string",
+            "workspaceId": 1
+          }
+  - name: 401 Response
+    description: Unauthorized - no valid session
+    request:
+      url: "{{baseUrl}}/auth/sync/session"
+      method: GET
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "statusCode": 401,
+            "message": "Unauthorized",
+            "error": "Unauthorized"
+          }
+
+docs: Returns information about the current authenticated session

@@ -1,0 +1,199 @@
+info:
+  name: Update workspace snapshot
+  type: http
+  seq: 2
+  tags:
+    - Workspace
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/workspace/snapshot"
+  headers:
+    - name: If-Match
+      value: "0"
+      description: Current snapshot version for optimistic concurrency control
+  body:
+    type: json
+    data: |-
+      {
+        "schemaVersion": 1,
+        "beans": [],
+        "machines": [],
+        "brews": []
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
+
+examples:
+  - name: 200 Response
+    description: Snapshot updated successfully
+    request:
+      url: "{{baseUrl}}/workspace/snapshot"
+      method: PUT
+      headers:
+        - name: If-Match
+          value: "0"
+          description: Current snapshot version for optimistic concurrency control
+      body:
+        type: json
+        data: |-
+          {
+            "schemaVersion": 1,
+            "beans": [],
+            "machines": [],
+            "brews": []
+          }
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "snapshot": {
+              "schemaVersion": 1,
+              "beans": [],
+              "machines": [],
+              "brews": []
+            },
+            "version": 0
+          }
+  - name: 400 Response
+    description: Invalid snapshot data
+    request:
+      url: "{{baseUrl}}/workspace/snapshot"
+      method: PUT
+      headers:
+        - name: If-Match
+          value: "0"
+          description: Current snapshot version for optimistic concurrency control
+      body:
+        type: json
+        data: |-
+          {
+            "schemaVersion": 1,
+            "beans": [],
+            "machines": [],
+            "brews": []
+          }
+    response:
+      status: 400
+      statusText: Bad Request
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "statusCode": 400,
+            "message": "Bad Request",
+            "error": "Bad Request"
+          }
+  - name: 401 Response
+    description: Unauthorized - no valid session
+    request:
+      url: "{{baseUrl}}/workspace/snapshot"
+      method: PUT
+      headers:
+        - name: If-Match
+          value: "0"
+          description: Current snapshot version for optimistic concurrency control
+      body:
+        type: json
+        data: |-
+          {
+            "schemaVersion": 1,
+            "beans": [],
+            "machines": [],
+            "brews": []
+          }
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "statusCode": 401,
+            "message": "Unauthorized",
+            "error": "Unauthorized"
+          }
+  - name: 404 Response
+    description: Workspace not found
+    request:
+      url: "{{baseUrl}}/workspace/snapshot"
+      method: PUT
+      headers:
+        - name: If-Match
+          value: "0"
+          description: Current snapshot version for optimistic concurrency control
+      body:
+        type: json
+        data: |-
+          {
+            "schemaVersion": 1,
+            "beans": [],
+            "machines": [],
+            "brews": []
+          }
+    response:
+      status: 404
+      statusText: Not Found
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "statusCode": 400,
+            "message": "Bad Request",
+            "error": "Bad Request"
+          }
+  - name: 409 Response
+    description: Snapshot version conflict - data has changed
+    request:
+      url: "{{baseUrl}}/workspace/snapshot"
+      method: PUT
+      headers:
+        - name: If-Match
+          value: "0"
+          description: Current snapshot version for optimistic concurrency control
+      body:
+        type: json
+        data: |-
+          {
+            "schemaVersion": 1,
+            "beans": [],
+            "machines": [],
+            "brews": []
+          }
+    response:
+      status: 409
+      statusText: Conflict
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "statusCode": 400,
+            "message": "Bad Request",
+            "error": "Bad Request"
+          }
+
+docs: Updates the workspace snapshot with new data. Uses If-Match header for optimistic concurrency control to prevent overwriting changes.

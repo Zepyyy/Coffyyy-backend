@@ -1,0 +1,69 @@
+info:
+  name: Create workspace and sync code
+  type: http
+  seq: 2
+  tags:
+    - Authentication
+
+http:
+  method: POST
+  url: "{{baseUrl}}/auth/sync/enable"
+  body:
+    type: json
+    data: "{}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
+
+examples:
+  - name: 201 Response
+    description: Workspace and session created
+    request:
+      url: "{{baseUrl}}/auth/sync/enable"
+      method: POST
+      body:
+        type: json
+        data: "{}"
+    response:
+      status: 201
+      statusText: Created
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "workspaceId": 1,
+            "syncCode": "ABCD1234",
+            "csrfToken": "abc123def456"
+          }
+  - name: 403 Response
+    description: Forbidden - invalid or missing CSRF token
+    request:
+      url: "{{baseUrl}}/auth/sync/enable"
+      method: POST
+      body:
+        type: json
+        data: "{}"
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "statusCode": 403,
+            "message": "Invalid CSRF token",
+            "error": "Forbidden"
+          }
+
+docs: Creates a new workspace, session, and generates a permanent reusable sync code. This is the first step for new users to create their workspace.

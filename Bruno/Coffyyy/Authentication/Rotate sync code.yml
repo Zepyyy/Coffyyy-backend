@@ -1,0 +1,58 @@
+info:
+  name: Rotate sync code
+  type: http
+  seq: 6
+  tags:
+    - Authentication
+
+http:
+  method: POST
+  url: "{{baseUrl}}/auth/sync/code/rotate"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
+
+examples:
+  - name: 200 Response
+    description: New sync code generated
+    request:
+      url: "{{baseUrl}}/auth/sync/code/rotate"
+      method: POST
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "syncCode": "NEWCODE123"
+          }
+  - name: 401 Response
+    description: Unauthorized - no valid session
+    request:
+      url: "{{baseUrl}}/auth/sync/code/rotate"
+      method: POST
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "statusCode": 401,
+            "message": "Unauthorized",
+            "error": "Unauthorized"
+          }
+
+docs: Generates a new sync code for the workspace, invalidating the previous one. The new code is returned in the response.

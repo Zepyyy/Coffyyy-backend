@@ -1,0 +1,40 @@
+info:
+  name: Get CSRF token
+  type: http
+  seq: 1
+  tags:
+    - Authentication
+
+http:
+  method: GET
+  url: "{{baseUrl}}/auth/sync/csrf"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
+
+examples:
+  - name: 200 Response
+    description: CSRF token generated
+    request:
+      url: "{{baseUrl}}/auth/sync/csrf"
+      method: GET
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "csrfRequired": true,
+            "csrfToken": "abc123def456"
+          }
+
+docs: Returns a new CSRF token and sets the CSRF cookie. This endpoint is public and can be used to bootstrap the authentication flow.

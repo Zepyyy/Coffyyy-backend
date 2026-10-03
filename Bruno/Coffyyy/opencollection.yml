@@ -2,9 +2,27 @@ opencollection: 1.0.0
 
 info:
   name: Coffyyy
+config:
+  proxy:
+    inherit: true
+    config:
+      protocol: http
+      hostname: ""
+      port: ""
+      auth:
+        username: ""
+        password: ""
+      bypassProxy: ""
 bundled: false
 extensions:
   bruno:
     ignore:
       - node_modules
       - .git
+    openapi:
+      - sourceUrl: ../../docs/openapi.json
+        groupBy: tags
+        lastSyncDate: 2026-10-03T17:05:23.453Z
+        specHash: 338619df33f0d3d3eee542fe7f843b96
+        autoCheck: true
+        autoCheckInterval: 5

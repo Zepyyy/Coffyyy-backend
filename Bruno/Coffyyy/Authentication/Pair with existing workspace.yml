@@ -1,0 +1,104 @@
+info:
+  name: Pair with existing workspace
+  type: http
+  seq: 3
+  tags:
+    - Authentication
+
+http:
+  method: POST
+  url: "{{baseUrl}}/auth/sync/pair"
+  body:
+    type: json
+    data: |-
+      {
+        "code": "ABCD1234"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
+
+examples:
+  - name: 201 Response
+    description: Session created for existing workspace
+    request:
+      url: "{{baseUrl}}/auth/sync/pair"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "code": "ABCD1234"
+          }
+    response:
+      status: 201
+      statusText: Created
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "connected": true,
+            "workspaceId": 1,
+            "expiresAt": "2025-01-01T00:00:00.000Z",
+            "csrfToken": "abc123def456"
+          }
+  - name: 403 Response
+    description: Forbidden - invalid or missing CSRF token
+    request:
+      url: "{{baseUrl}}/auth/sync/pair"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "code": "ABCD1234"
+          }
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "statusCode": 403,
+            "message": "Invalid CSRF token",
+            "error": "Forbidden"
+          }
+  - name: 404 Response
+    description: Sync code not found
+    request:
+      url: "{{baseUrl}}/auth/sync/pair"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "code": "ABCD1234"
+          }
+    response:
+      status: 404
+      statusText: Not Found
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "statusCode": 400,
+            "message": "Bad Request",
+            "error": "Bad Request"
+          }
+
+docs: Connects to an existing workspace using a sync code. The sync code is reusable and does not expire. Creates a new session for the workspace.

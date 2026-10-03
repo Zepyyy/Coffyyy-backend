@@ -1,0 +1,839 @@
+openapi: 3.0.3
+info:
+  title: Coffyyy API
+  description: |
+    The Coffyyy backend API for managing coffee workspaces, beans, machines, and brews.
+
+    ## Authentication
+    This API uses a cookie-based session system with CSRF protection. All requests
+    (except public endpoints) require:
+    - A valid `coffyyy_session` cookie
+    - A valid `X-CSRF-Token` header or `coffyyy_csrf` cookie
+
+    ## Workspace Access
+    - Use `/auth/sync/enable` to create a new workspace and get a sync code
+    - Use `/auth/sync/pair` with an existing sync code to access a workspace
+    - Session endpoints manage the current authenticated session
+  version: 0.2.0
+  contact:
+    name: Coffyyy
+    url: https://coffyyy.quentinstubecki.fr
+servers:
+  - url: http://localhost:3000/api
+    description: Local development server
+  - url: https://coffyyy-backend.onrender.com/api
+    description: Production server
+  - url: https://coffyyy.quentinstubecki.fr/api
+    description: Production frontend API
+
+security:
+  - csrf: []
+
+paths:
+  /:
+    get:
+      tags:
+        - App
+      summary: Root endpoint
+      description: Legacy root endpoint that returns a simple message
+      operationId: getHello
+      responses:
+        '200':
+          description: Service is running
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Hello World!
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: |
+        Returns the current health status of the service including database connectivity.
+        This is the proper health check endpoint. No authentication required.
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: Service health status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+  /auth/sync/csrf:
+    get:
+      tags:
+        - Authentication
+      summary: Get CSRF token
+      description: |
+        Returns a new CSRF token and sets the CSRF cookie. This endpoint is public
+        and can be used to bootstrap the authentication flow.
+      operationId: getCsrf
+      security: []
+      responses:
+        '200':
+          description: CSRF token generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsrfResponse'
+          headers:
+            Set-Cookie:
+              description: Contains the CSRF cookie
+              schema:
+                type: string
+
+  /auth/sync/enable:
+    post:
+      tags:
+        - Authentication
+      summary: Create workspace and sync code
+      description: |
+        Creates a new workspace, session, and generates a permanent reusable sync code.
+        This is the first step for new users to create their workspace.
+      operationId: enableSync
+      security: []
+      requestBody:
+        description: No body required, but CSRF validation is performed
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        '201':
+          description: Workspace and session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnableSyncResponse'
+          headers:
+            Set-Cookie:
+              description: Contains session and CSRF cookies
+              schema:
+                type: string
+        '403':
+          $ref: '#/components/responses/CsrfInvalid'
+
+  /auth/sync/pair:
+    post:
+      tags:
+        - Authentication
+      summary: Pair with existing workspace
+      description: |
+        Connects to an existing workspace using a sync code. The sync code is
+        reusable and does not expire. Creates a new session for the workspace.
+      operationId: pair
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncRequest'
+      responses:
+        '201':
+          description: Session created for existing workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PairResponse'
+          headers:
+            Set-Cookie:
+              description: Contains session and CSRF cookies
+              schema:
+                type: string
+        '403':
+          $ref: '#/components/responses/CsrfInvalid'
+        '404':
+          description: Sync code not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/sync/session:
+    get:
+      tags:
+        - Authentication
+      summary: Get current session info
+      description: Returns information about the current authenticated session
+      operationId: getSession
+      responses:
+        '200':
+          description: Current session information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/sync/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout current session
+      description: Revokes the current session and clears session cookies
+      operationId: logout
+      responses:
+        '204':
+          description: Successfully logged out
+          headers:
+            Set-Cookie:
+              description: Clears session cookies
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/sync/code/rotate:
+    post:
+      tags:
+        - Authentication
+      summary: Rotate sync code
+      description: |
+        Generates a new sync code for the workspace, invalidating the previous one.
+        The new code is returned in the response.
+      operationId: rotateCode
+      responses:
+        '200':
+          description: New sync code generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RotateCodeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/sync/sessions/revoke:
+    post:
+      tags:
+        - Authentication
+      summary: Revoke all sessions
+      description: |
+        Revokes all active sessions for the current workspace, then clears
+        the current browser cookies.
+      operationId: revokeSessions
+      responses:
+        '204':
+          description: All sessions revoked
+          headers:
+            Set-Cookie:
+              description: Clears session cookies
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /workspace/snapshot:
+    get:
+      tags:
+        - Workspace
+      summary: Get workspace snapshot
+      description: |
+        Returns the current workspace snapshot containing beans, machines, and brews.
+        The snapshot includes version information for optimistic concurrency control.
+      operationId: getSnapshot
+      responses:
+        '200':
+          description: Current workspace snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Workspace
+      summary: Update workspace snapshot
+      description: |
+        Updates the workspace snapshot with new data. Uses If-Match header for
+        optimistic concurrency control to prevent overwriting changes.
+      operationId: putSnapshot
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Snapshot'
+      responses:
+        '200':
+          description: Snapshot updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Snapshot version conflict - data has changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Invalid snapshot data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    csrf:
+      type: apiKey
+      name: X-CSRF-Token
+      in: header
+      description: CSRF token for request validation
+
+  parameters:
+    IfMatch:
+      name: If-Match
+      in: header
+      description: Current snapshot version for optimistic concurrency control
+      required: true
+      schema:
+        type: string
+        pattern: '^\d+$'
+        example: "0"
+
+  schemas:
+    # Health schemas
+    HealthStatus:
+      type: object
+      description: Service health status with dependency checks
+      properties:
+        status:
+          type: string
+          description: Overall health status
+          enum: [healthy, unhealthy]
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+          description: When the health check was performed
+          example: "2025-01-01T00:00:00.000Z"
+        version:
+          type: string
+          description: API version
+          example: "0.2.0"
+        checks:
+          type: object
+          description: Individual health checks
+          properties:
+            database:
+              $ref: '#/components/schemas/DatabaseHealth'
+          required:
+            - database
+      required:
+        - status
+        - timestamp
+        - version
+        - checks
+
+    DatabaseHealth:
+      type: object
+      description: Database connectivity health check
+      properties:
+        status:
+          type: string
+          description: Database connection status
+          enum: [up, down]
+          example: up
+        message:
+          type: string
+          description: Error message if database is down
+          example: null
+      required:
+        - status
+
+    # Authentication schemas
+    CsrfResponse:
+      type: object
+      properties:
+        csrfRequired:
+          type: boolean
+          description: Indicates if CSRF is required for subsequent requests
+          example: true
+        csrfToken:
+          type: string
+          description: Current CSRF token
+          example: "abc123def456"
+      required:
+        - csrfRequired
+        - csrfToken
+
+    SyncRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Permanent reusable workspace sync code
+          example: "ABCD1234"
+          minLength: 1
+      required:
+        - code
+
+    EnableSyncResponse:
+      type: object
+      properties:
+        workspaceId:
+          type: number
+          description: Unique identifier for the created workspace
+          example: 1
+        syncCode:
+          type: string
+          description: Permanent sync code for the workspace
+          example: "ABCD1234"
+        csrfToken:
+          type: string
+          description: CSRF token for the new session
+          example: "abc123def456"
+      required:
+        - workspaceId
+        - syncCode
+        - csrfToken
+
+    PairResponse:
+      type: object
+      properties:
+        connected:
+          type: boolean
+          description: Indicates successful connection
+          example: true
+        workspaceId:
+          type: number
+          description: Unique identifier for the workspace
+          example: 1
+        expiresAt:
+          type: string
+          format: date-time
+          description: Expiration timestamp for the session
+          example: "2025-01-01T00:00:00.000Z"
+        csrfToken:
+          type: string
+          description: CSRF token for the new session
+          example: "abc123def456"
+      required:
+        - connected
+        - workspaceId
+        - expiresAt
+        - csrfToken
+
+    SessionInfo:
+      type: object
+      properties:
+        sub:
+          type: number
+          description: User ID (workspace owner)
+          example: 1
+        sessionId:
+          type: string
+          description: Current session ID
+          example: "session-uuid-string"
+        workspaceId:
+          type: number
+          description: Workspace ID
+          example: 1
+      required:
+        - sub
+        - sessionId
+
+    RotateCodeResponse:
+      type: object
+      properties:
+        syncCode:
+          type: string
+          description: New sync code for the workspace
+          example: "NEWCODE123"
+      required:
+        - syncCode
+
+    # Workspace schemas
+    Snapshot:
+      type: object
+      description: Complete workspace data structure
+      properties:
+        schemaVersion:
+          type: number
+          description: Schema version for validation
+          enum: [1]
+          example: 1
+        beans:
+          type: array
+          description: Array of coffee bean records
+          items:
+            $ref: '#/components/schemas/Bean'
+          example: []
+        machines:
+          type: array
+          description: Array of machine records
+          items:
+            $ref: '#/components/schemas/Machine'
+          example: []
+        brews:
+          type: array
+          description: Array of brew records
+          items:
+            $ref: '#/components/schemas/Brew'
+          example: []
+      required:
+        - schemaVersion
+        - beans
+        - machines
+        - brews
+
+    SnapshotResponse:
+      type: object
+      properties:
+        snapshot:
+          $ref: '#/components/schemas/Snapshot'
+        version:
+          type: number
+          description: Current snapshot version for concurrency control
+          example: 0
+      required:
+        - snapshot
+        - version
+
+    Bean:
+      type: object
+      description: Coffee bean record
+      properties:
+        localId:
+          type: string
+          description: Unique local identifier
+          example: "bean-001"
+        name:
+          type: string
+          description: Name of the coffee bean
+          example: "Ethiopian Yirgacheffe"
+        rating:
+          type: number
+          description: Bean rating (0-5 scale)
+          minimum: 0
+          maximum: 5
+          example: 4.5
+        roastLevel:
+          type: number
+          description: Roast level
+          example: 3
+        origin:
+          type: array
+          description: Origin countries/regions
+          items:
+            type: string
+          example: ["Ethiopia", "Yirgacheffe"]
+        process:
+          type: array
+          description: Processing methods
+          items:
+            type: string
+          example: ["Washed"]
+        variety:
+          type: array
+          description: Coffee varieties
+          items:
+            type: string
+          example: ["Heirloom"]
+        brand:
+          type: string
+          description: Brand or roaster name
+          example: "Counter Culture"
+        flavors:
+          type: array
+          description: Flavor notes
+          items:
+            type: string
+          example: ["Floral", "Fruity", "Tea-like"]
+        status:
+          type: string
+          description: Bean status
+          enum:
+            - Excellent
+            - Good
+            - Mid
+            - Horrible
+            - New
+            - ""
+          example: "Excellent"
+        dominantNote:
+          type: string
+          description: Primary flavor characteristic
+          enum:
+            - Fruity
+            - Nutty
+            - Floral
+            - Sweet
+            - Sour
+            - Spices
+            - Roasted
+            - Green
+            - ""
+          example: "Floral"
+        botanic:
+          type: string
+          description: Coffee species
+          enum:
+            - Arabica
+            - Robusta
+            - ""
+          example: "Arabica"
+        designation:
+          type: string
+          description: Coffee designation
+          enum:
+            - Pure Origin
+            - Blend
+            - ""
+          example: "Pure Origin"
+        finished:
+          type: boolean
+          description: Whether the bean is finished/use
+          example: false
+      required:
+        - localId
+        - name
+        - rating
+        - roastLevel
+        - origin
+        - process
+        - variety
+        - brand
+        - flavors
+        - status
+        - dominantNote
+        - botanic
+        - designation
+        - finished
+
+    Machine:
+      type: object
+      description: Coffee machine or equipment record
+      properties:
+        localId:
+          type: string
+          description: Unique local identifier
+          example: "machine-001"
+        name:
+          type: string
+          description: Name of the machine
+          example: "Rancilio Silvia"
+        brand:
+          type: string
+          description: Brand name
+          example: "Rancilio"
+        type:
+          type: string
+          description: Machine type
+          example: "Espresso Machine"
+        purchaseDate:
+          type: string
+          description: Date of purchase
+          example: "2024-01-01"
+        model:
+          type: string
+          description: Model name
+          example: "Silvia Pro"
+        grindRange:
+          type: string
+          description: Grind size range supported
+          example: "Espresso to French Press"
+        capacity:
+          type: string
+          description: Capacity specification
+          example: "2L"
+      required:
+        - localId
+        - name
+        - brand
+        - type
+        - purchaseDate
+        - model
+        - grindRange
+        - capacity
+
+    Brew:
+      type: object
+      description: Coffee brew record
+      properties:
+        localId:
+          type: string
+          description: Unique local identifier
+          example: "brew-001"
+        beanWeight:
+          type: number
+          description: Weight of coffee beans in grams
+          example: 18.0
+        espressoWeight:
+          type: number
+          description: Weight of espresso output in grams
+          example: 36.0
+        grindSize:
+          type: number
+          description: Grind size setting
+          example: 8
+        overallRating:
+          type: number
+          description: Overall rating of the brew
+          example: 4.5
+        tasteScore:
+          type: number
+          description: Taste score
+          example: 8
+        strengthScore:
+          type: number
+          description: Strength score
+          example: 7
+        extractionTime:
+          type: string
+          description: Time taken for extraction
+          example: "28"
+        flow:
+          type: string
+          description: Flow rate or profile
+          example: "Standard"
+        date:
+          type: string
+          description: Date of the brew (ISO date string)
+          format: date
+          example: "2024-01-01"
+        beanLocalId:
+          type: string
+          description: Reference to the bean used
+          example: "bean-001"
+        machineLocalId:
+          type: string
+          description: Reference to the machine used
+          example: "machine-001"
+      required:
+        - localId
+        - beanWeight
+        - espressoWeight
+        - grindSize
+        - date
+
+    # Error schemas
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: number
+          description: HTTP status code
+          example: 400
+        message:
+          type: string
+          description: Error message
+          example: "Bad Request"
+        error:
+          type: string
+          description: Error type
+          example: "Bad Request"
+      required:
+        - statusCode
+        - message
+        - error
+
+  responses:
+    Unauthorized:
+      description: Unauthorized - no valid session
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            statusCode: 401
+            message: "Unauthorized"
+            error: "Unauthorized"
+
+    CsrfInvalid:
+      description: Forbidden - invalid or missing CSRF token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            statusCode: 403
+            message: "Invalid CSRF token"
+            error: "Forbidden"
+
+  examples:
+    SampleBean:
+      summary: Example coffee bean
+      value:
+        localId: "bean-001"
+        name: "Ethiopian Yirgacheffe"
+        rating: 4.5
+        roastLevel: 3
+        origin: ["Ethiopia", "Yirgacheffe"]
+        process: ["Washed"]
+        variety: ["Heirloom"]
+        brand: "Counter Culture"
+        flavors: ["Floral", "Fruity", "Tea-like"]
+        status: "Excellent"
+        dominantNote: "Floral"
+        botanic: "Arabica"
+        designation: "Pure Origin"
+        finished: false
+
+    SampleMachine:
+      summary: Example coffee machine
+      value:
+        localId: "machine-001"
+        name: "Rancilio Silvia"
+        brand: "Rancilio"
+        type: "Espresso Machine"
+        purchaseDate: "2024-01-01"
+        model: "Silvia Pro"
+        grindRange: "Espresso to French Press"
+        capacity: "2L"
+
+    SampleBrew:
+      summary: Example brew
+      value:
+        localId: "brew-001"
+        beanWeight: 18.0
+        espressoWeight: 36.0
+        grindSize: 8
+        overallRating: 4.5
+        tasteScore: 8
+        strengthScore: 7
+        extractionTime: "28"
+        flow: "Standard"
+        date: "2024-01-01"
+        beanLocalId: "bean-001"
+        machineLocalId: "machine-001"
+
+    SampleSnapshot:
+      summary: Example workspace snapshot
+      value:
+        snapshot:
+          schemaVersion: 1
+          beans:
+            - $ref: '#/components/examples/SampleBean'
+          machines:
+            - $ref: '#/components/examples/SampleMachine'
+          brews:
+            - $ref: '#/components/examples/SampleBrew'
+        version: 0
