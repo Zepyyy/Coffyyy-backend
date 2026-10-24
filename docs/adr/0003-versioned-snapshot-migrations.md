@@ -1,4 +1,4 @@
-# Versioned snapshot upgrades
+# Versioned snapshot migrations
 
 Snapshot schema changes are non-destructive. Each schema bump ships a pure
 `upgradeSnapshot` step (`src/workspace/snapshot.ts`, mirrored in the
