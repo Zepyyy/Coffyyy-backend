@@ -376,7 +376,7 @@
             }
           },
           "409": {
-            "description": "Snapshot version conflict - data has changed",
+            "description": "Snapshot version conflict - data has changed (\"Cloud snapshot changed\"), or outdated client sent an older schema (\"Client outdated: snapshot schema 1 is no longer accepted\")",
             "content": {
               "application/json": {
                 "schema": {
@@ -579,7 +579,7 @@
         "properties": {
           "schemaVersion": {
             "type": "number",
-            "enum": [1]
+            "enum": [2]
           },
           "beans": {
             "type": "array",
@@ -598,9 +598,15 @@
             "items": {
               "$ref": "#/components/schemas/Brew"
             }
+          },
+          "recipes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Recipe"
+            }
           }
         },
-        "required": ["schemaVersion", "beans", "machines", "brews"]
+        "required": ["schemaVersion", "beans", "machines", "brews", "recipes"]
       },
       "SnapshotResponse": {
         "type": "object",
@@ -711,7 +717,7 @@
       },
       "Machine": {
         "type": "object",
-        "description": "Coffee machine or equipment record",
+        "description": "Brewer (coffee machine or equipment) record",
         "additionalProperties": false,
         "properties": {
           "localId": {
@@ -724,8 +730,9 @@
           "brand": {
             "type": "string"
           },
-          "type": {
-            "type": "string"
+          "method": {
+            "type": "string",
+            "enum": ["espresso", "pour-over", "moka"]
           },
           "purchaseDate": {
             "type": "string"
@@ -744,7 +751,7 @@
           "localId",
           "name",
           "brand",
-          "type",
+          "method",
           "purchaseDate",
           "model",
           "grindRange",
@@ -753,12 +760,17 @@
       },
       "Brew": {
         "type": "object",
-        "description": "Coffee brew record; bean/machine reference snapshot localIds",
+        "description": "Coffee brew record; bean/machine/recipe reference snapshot localIds",
         "additionalProperties": false,
         "properties": {
           "localId": {
             "type": "string",
             "description": "Stable client-generated ID, unique per entity type"
+          },
+          "method": {
+            "type": "string",
+            "enum": ["espresso", "pour-over", "moka"],
+            "description": "Copied from the Brewer at log time; immutable"
           },
           "beanLocalId": {
             "type": "string",
@@ -768,11 +780,17 @@
             "type": "string",
             "description": "Machine localId"
           },
-          "beanWeight": {
-            "type": "number"
+          "recipeLocalId": {
+            "type": "string",
+            "description": "Recipe localId; recipe method must match"
           },
-          "espressoWeight": {
-            "type": "number"
+          "beanWeight": {
+            "type": "number",
+            "description": "Dose (g)"
+          },
+          "brewWeight": {
+            "type": "number",
+            "description": "Liquid weight (g) the ratio is computed from"
           },
           "grindSize": {
             "type": "number"
@@ -789,9 +807,23 @@
             "description": "-5 weak to +5 strong"
           },
           "extractionTime": {
-            "type": "string"
+            "type": "string",
+            "description": "Seconds"
           },
           "flow": {
+            "type": "string",
+            "description": "Espresso only"
+          },
+          "waterTemp": {
+            "type": "number",
+            "description": "°C, pour-over only"
+          },
+          "heat": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "Moka only"
+          },
+          "notes": {
             "type": "string"
           },
           "date": {
@@ -801,8 +833,9 @@
         },
         "required": [
           "localId",
+          "method",
           "beanWeight",
-          "espressoWeight",
+          "brewWeight",
           "grindSize",
           "date"
         ]
@@ -827,6 +860,64 @@
           }
         },
         "required": ["statusCode", "message", "error"]
+      },
+      "Recipe": {
+        "type": "object",
+        "description": "Saved brew targets for espresso or pour-over (no moka)",
+        "additionalProperties": false,
+        "properties": {
+          "localId": {
+            "type": "string",
+            "description": "Stable client-generated ID, unique per entity type"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "method": {
+            "type": "string",
+            "enum": ["espresso", "pour-over"],
+            "description": "Immutable after creation"
+          },
+          "beanLocalId": {
+            "type": "string",
+            "description": "Optional bean tie"
+          },
+          "beanWeight": {
+            "type": "number",
+            "description": "Target dose (g)"
+          },
+          "brewWeight": {
+            "type": "number",
+            "description": "Target yield/water (g)"
+          },
+          "grindSize": {
+            "type": "number"
+          },
+          "extractionTime": {
+            "type": "string",
+            "description": "Seconds"
+          },
+          "waterTemp": {
+            "type": "number",
+            "description": "°C, pour-over only"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "ISO 8601 date-time"
+          }
+        },
+        "required": [
+          "localId",
+          "name",
+          "method",
+          "beanWeight",
+          "brewWeight",
+          "createdAt"
+        ]
       }
     },
     "responses": {

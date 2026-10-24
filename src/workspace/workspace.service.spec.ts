@@ -4,7 +4,7 @@ import { WorkspaceService } from "./workspace.service";
 
 describe("WorkspaceService", () => {
 	const snapshot = {
-		schemaVersion: 1 as const,
+		schemaVersion: 2 as const,
 		beans: [
 			{
 				localId: "bean-1",
@@ -28,7 +28,41 @@ describe("WorkspaceService", () => {
 				localId: "machine-1",
 				name: "Linea Mini",
 				brand: "",
-				type: "",
+				method: "espresso",
+				purchaseDate: "",
+				model: "",
+				grindRange: "",
+				capacity: "",
+			},
+		],
+		brews: [
+			{
+				localId: "brew-1",
+				method: "espresso",
+				beanLocalId: "bean-1",
+				machineLocalId: "machine-1",
+				beanWeight: 18,
+				brewWeight: 36,
+				extractionTime: "30s",
+				flow: "",
+				overallRating: 4,
+				tasteScore: 1,
+				strengthScore: 0,
+				grindSize: 12,
+				date: "2026-07-31T00:00:00.000Z",
+			},
+		],
+		recipes: [] as Array<Record<string, unknown>>,
+	};
+	const v1Snapshot = {
+		schemaVersion: 1 as const,
+		beans: snapshot.beans,
+		machines: [
+			{
+				localId: "machine-1",
+				name: "Linea Mini",
+				brand: "",
+				type: "Moka",
 				purchaseDate: "",
 				model: "",
 				grindRange: "",
@@ -76,7 +110,13 @@ describe("WorkspaceService", () => {
 			snapshotVersion: 0,
 		});
 		expect(await service.getSnapshot(7)).toEqual({
-			snapshot: { schemaVersion: 1, beans: [], machines: [], brews: [] },
+			snapshot: {
+				schemaVersion: 2,
+				beans: [],
+				machines: [],
+				brews: [],
+				recipes: [],
+			},
 			version: 0,
 		});
 	});
@@ -157,6 +197,47 @@ describe("WorkspaceService", () => {
 			new BadRequestException("Invalid workspace snapshot"),
 		);
 		expect(prisma.$transaction).not.toHaveBeenCalled();
+	});
+
+	it("reads a stored v1 snapshot as v2", async () => {
+		prisma.user.findUnique.mockResolvedValue({
+			snapshot: structuredClone(v1Snapshot),
+			snapshotVersion: 3,
+		});
+		const { snapshot: read, version } = await service.getSnapshot(7);
+		expect(version).toBe(3);
+		expect(read.schemaVersion).toBe(2);
+		expect(read.recipes).toEqual([]);
+		expect(read.machines[0]).toMatchObject({ method: "moka" });
+		expect(read.machines[0]).not.toHaveProperty("type");
+		expect(read.brews[0]).toMatchObject({ method: "moka", brewWeight: 36 });
+		expect(read.brews[0]).not.toHaveProperty("espressoWeight");
+	});
+
+	it("rejects a v1 PUT as an outdated client with 409", async () => {
+		await expect(
+			service.putSnapshot(7, structuredClone(v1Snapshot), "0"),
+		).rejects.toEqual(
+			new ConflictException(
+				"Client outdated: snapshot schema 1 is no longer accepted",
+			),
+		);
+		expect(prisma.$transaction).not.toHaveBeenCalled();
+	});
+
+	it("accepts a retry equivalent to the upgraded stored v1 snapshot", async () => {
+		tx.user.findUnique.mockResolvedValue({
+			snapshot: {
+				...v1Snapshot,
+				machines: [{ ...v1Snapshot.machines[0], type: "Espresso" }],
+			},
+			snapshotVersion: 2,
+		});
+		tx.user.updateMany.mockResolvedValue({ count: 0 });
+		await expect(service.putSnapshot(7, snapshot, "1")).resolves.toEqual({
+			snapshot,
+			version: 2,
+		});
 	});
 
 	it("passes the authenticated workspace ID to reads", async () => {

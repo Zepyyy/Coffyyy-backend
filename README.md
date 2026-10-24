@@ -37,10 +37,12 @@ Authenticated snapshot sync uses `GET /api/workspace/snapshot` and
 `PUT /api/workspace/snapshot` with `If-Match: <version>`. A stale, different
 snapshot returns `409`; retrying the same payload is idempotent.
 
-Snapshot JSON is `{ "schemaVersion": 1, "beans": [], "machines": [],
-"brews": [] }`. Beans and machines require a unique `localId`; brews use
-`beanLocalId` and `machineLocalId` for relationships. PUT validates all entity
-fields and replaces the complete snapshot transactionally.
+Snapshot JSON is `{ "schemaVersion": 2, "beans": [], "machines": [],
+"brews": [], "recipes": [] }`. Every entity requires a unique `localId`; brews
+use `beanLocalId`, `machineLocalId`, and `recipeLocalId`, recipes use
+`beanLocalId` for relationships. PUT validates all entity fields and replaces
+the complete snapshot transactionally. GET upgrades stored schema 1 snapshots
+to 2 in memory; PUT of schema 1 returns `409` "Client outdated".
 
 Legacy operation push, change-feed, recovery-history, migration-import, and
 entity CRUD routes are removed, as are the relational Bean, Machine, and Brew

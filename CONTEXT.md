@@ -7,9 +7,18 @@ snapshot sync.
 
 **Workspace**: Internal `User` row owning auth state and one current snapshot.
 
-**Snapshot**: Complete JSON document containing beans, machines, brews, stable
-local IDs, and brew relationships. Snapshot PUT replaces cloud state atomically
-with an `If-Match` version guard. Fields outside the schema are stripped.
+**Snapshot**: Complete JSON document containing beans, machines (Brewers),
+brews, recipes, stable local IDs, and their relationships. Snapshot PUT replaces
+cloud state atomically with an `If-Match` version guard. Fields outside the
+schema are stripped.
+
+**Schema version**: `schemaVersion` of a snapshot, currently `2`. Older stored
+snapshots are upgraded in memory on read (`upgradeSnapshot`) and persisted on
+the next write; PUT accepts only the current version.
+
+**Brew method**: `espresso | pour-over | moka`. Each machine has one; each brew
+stores its own copy. Recipes exist for espresso and pour-over only, and a brew
+linked to a recipe has the recipe's method.
 
 **Sync code**: Reusable reconnect credential. Plaintext exists only in the
 request/response path; the database stores its hash.
@@ -23,6 +32,8 @@ request/response path; the database stores its hash.
 - Snapshot replacement is last-write-wins only when the expected version
   matches; an equivalent retry is idempotent and a different stale write gets
   `409 Conflict`.
+- PUT of an older `schemaVersion` gets `409 Conflict` "Client outdated: ..."
+  before schema validation, so legacy fields are never silently stripped.
 - Legacy operation push, change feeds, recovery history, migration import,
   entity CRUD routes, revisions, tombstones, and retention are removed.
 - No relational Bean/Brew/Machine tables: the server never queries workspace
