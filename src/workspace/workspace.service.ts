@@ -8,6 +8,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import {
 	type Snapshot,
 	SnapshotDocument,
+	SnapshotOutdatedError,
 	SnapshotValidationError,
 } from "./snapshot";
 
@@ -88,6 +89,9 @@ export class WorkspaceService {
 		} catch (error) {
 			if (error instanceof SnapshotValidationError)
 				throw new BadRequestException(error.message);
+			// 409 like a version conflict, but the client must upgrade, not merge.
+			if (error instanceof SnapshotOutdatedError)
+				throw new ConflictException(error.message);
 			throw error;
 		}
 	}
