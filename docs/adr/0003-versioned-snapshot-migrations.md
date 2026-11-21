@@ -14,3 +14,8 @@ fields and lose data. The `409` is distinguished from a version conflict
 Schema 2 (multi-method brewing): machines get `method` instead of free-text
 `type`, brews `espressoWeight` -> `brewWeight` plus `method`, and a `recipes`
 collection is added. See the frontend ADR 0003 for the full decision.
+
+Schema 3 (V60 pours): recipes get optional `pours` (cumulative timed schedule,
+pour-over only) and brews an optional `starterPours` flag. The v2 -> v3 upgrade
+only bumps the version. v2 PUTs are rejected as outdated because a v2 client
+would drop `pours`.

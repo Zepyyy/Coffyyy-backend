@@ -34,7 +34,7 @@ export const DESIGNATIONS = ["Pure Origin", "Blend", ""] as const;
 export const BREW_METHODS = ["espresso", "pour-over", "moka"] as const;
 export const RECIPE_METHODS = ["espresso", "pour-over"] as const;
 export const HEAT_LEVELS = ["low", "medium", "high"] as const;
-export const SNAPSHOT_SCHEMA_VERSION = 2;
+export const SNAPSHOT_SCHEMA_VERSION = 3;
 
 const bean = {
 	type: "object",
@@ -131,6 +131,10 @@ const brew = {
 			description: "-5 sour/under-extracted to +5 bitter/over-extracted",
 		},
 		strengthScore: { type: "number", description: "-5 weak to +5 strong" },
+		starterPours: {
+			type: "boolean",
+			description: "Brew used the built-in four-pour V60 schedule",
+		},
 		extractionTime: { type: "string", description: "Seconds" },
 		flow: { type: "string", description: "Espresso only" },
 		waterTemp: { type: "number", description: "°C, pour-over only" },
@@ -167,6 +171,26 @@ const recipe = {
 		beanLocalId: { type: "string", description: "Optional bean tie" },
 		beanWeight: { type: "number", description: "Target dose (g)" },
 		brewWeight: { type: "number", description: "Target yield/water (g)" },
+		pours: {
+			type: "array",
+			minItems: 1,
+			description:
+				"Timed pour-over schedule: first at 0s, strictly increasing, last fraction 1",
+			items: {
+				type: "object",
+				additionalProperties: false,
+				properties: {
+					atSeconds: { type: "integer", minimum: 0 },
+					fraction: {
+						type: "number",
+						minimum: 0,
+						maximum: 1,
+						description: "Cumulative fraction of the planned water",
+					},
+				},
+				required: ["atSeconds", "fraction"],
+			},
+		},
 		grindSize: number,
 		extractionTime: { type: "string", description: "Seconds" },
 		waterTemp: { type: "number", description: "°C, pour-over only" },

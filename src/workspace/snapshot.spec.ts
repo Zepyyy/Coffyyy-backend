@@ -29,7 +29,7 @@ const bean = {
 };
 
 const validSnapshot = {
-	schemaVersion: 2 as const,
+	schemaVersion: 3 as const,
 	beans: [bean],
 	machines: [
 		{
@@ -148,11 +148,11 @@ describe("upgradeSnapshot", () => {
 		expect(methodFromMachineType(type)).toBe(method);
 	});
 
-	it("upgrades v1 to v2 without mutating input", () => {
+	it("upgrades v1 to v3 without mutating input", () => {
 		const input = structuredClone(v1Snapshot);
 		const upgraded = upgradeSnapshot(input) as typeof validSnapshot;
 		expect(input).toEqual(v1Snapshot);
-		expect(upgraded.schemaVersion).toBe(2);
+		expect(upgraded.schemaVersion).toBe(3);
 		expect(upgraded.recipes).toEqual([]);
 		expect(upgraded.machines.map((machine) => machine.method)).toEqual([
 			"espresso",
@@ -170,7 +170,13 @@ describe("upgradeSnapshot", () => {
 		});
 	});
 
-	it("leaves non-v1 values untouched", () => {
+	it("upgrades v2 to v3 by bumping the version only", () => {
+		const v2 = { ...validSnapshot, schemaVersion: 2 };
+		expect(upgradeSnapshot(v2)).toEqual(validSnapshot);
+		expect(v2.schemaVersion).toBe(2);
+	});
+
+	it("leaves current and non-snapshot values untouched", () => {
 		expect(upgradeSnapshot(validSnapshot)).toBe(validSnapshot);
 		expect(upgradeSnapshot(null)).toBeNull();
 	});
@@ -181,7 +187,7 @@ describe("SnapshotDocument", () => {
 
 	it("returns an empty snapshot for missing stored data", () => {
 		expect(document.fromStored(null)).toEqual({
-			schemaVersion: 2,
+			schemaVersion: 3,
 			beans: [],
 			machines: [],
 			brews: [],
@@ -189,9 +195,15 @@ describe("SnapshotDocument", () => {
 		});
 	});
 
-	it("reads stored v1 snapshots as v2", () => {
+	it("reads stored v2 snapshots as v3", () => {
+		expect(document.fromStored({ ...validSnapshot, schemaVersion: 2 })).toEqual(
+			validSnapshot,
+		);
+	});
+
+	it("reads stored v1 snapshots as v3", () => {
 		const stored = document.fromStored(v1Snapshot);
-		expect(stored.schemaVersion).toBe(2);
+		expect(stored.schemaVersion).toBe(3);
 		expect(stored.recipes).toEqual([]);
 		expect(stored.brews[0]).toMatchObject({
 			method: "pour-over",
@@ -199,8 +211,100 @@ describe("SnapshotDocument", () => {
 		});
 	});
 
-	it("accepts a valid v2 snapshot", () => {
+	it("accepts a valid v3 snapshot", () => {
 		expect(document.validate(validSnapshot)).toEqual(validSnapshot);
+	});
+
+	it("rejects v2 snapshots as outdated", () => {
+		expect(() =>
+			document.validate({ ...validSnapshot, schemaVersion: 2 }),
+		).toThrow(new SnapshotOutdatedError(2));
+	});
+
+	it("keeps a brew's starterPours flag", () => {
+		const brew = { ...validSnapshot.brews[0], starterPours: true };
+		expect(
+			document.validate({ ...validSnapshot, brews: [brew] }).brews[0],
+		).toEqual(brew);
+	});
+
+	describe("recipe pours", () => {
+		const v60 = {
+			...validSnapshot.recipes[0],
+			method: "pour-over",
+			pours: [
+				{ atSeconds: 0, fraction: 0.25 },
+				{ atSeconds: 45, fraction: 0.5 },
+				{ atSeconds: 105, fraction: 1 },
+			],
+		};
+		const withRecipe = (recipe: object) => ({
+			...validSnapshot,
+			brews: [],
+			recipes: [recipe],
+		});
+
+		it("accepts a valid V60 schedule", () => {
+			expect(document.validate(withRecipe(v60)).recipes[0]).toEqual(v60);
+		});
+
+		it.each([
+			["on an espresso recipe", { ...v60, method: "espresso" }],
+			[
+				"not starting at 0s",
+				{ ...v60, pours: [{ atSeconds: 5, fraction: 1 }] },
+			],
+			[
+				"with non-increasing times",
+				{
+					...v60,
+					pours: [
+						{ atSeconds: 0, fraction: 0.5 },
+						{ atSeconds: 0, fraction: 1 },
+					],
+				},
+			],
+			[
+				"with non-increasing fractions",
+				{
+					...v60,
+					pours: [
+						{ atSeconds: 0, fraction: 0.5 },
+						{ atSeconds: 30, fraction: 0.5 },
+						{ atSeconds: 60, fraction: 1 },
+					],
+				},
+			],
+			[
+				"not ending at 100%",
+				{ ...v60, pours: [{ atSeconds: 0, fraction: 0.9 }] },
+			],
+			[
+				"with a zero first fraction",
+				{
+					...v60,
+					pours: [
+						{ atSeconds: 0, fraction: 0 },
+						{ atSeconds: 10, fraction: 1 },
+					],
+				},
+			],
+		])("rejects a schedule %s", (_label, recipe) => {
+			expect(() => document.validate(withRecipe(recipe))).toThrow(
+				new SnapshotValidationError("Invalid pour schedule"),
+			);
+		});
+
+		it.each([
+			["empty", []],
+			["fractional seconds", [{ atSeconds: 0.5, fraction: 1 }]],
+			["fraction over 1", [{ atSeconds: 0, fraction: 1.5 }]],
+			["missing fraction", [{ atSeconds: 0 }]],
+		])("rejects malformed pours (%s)", (_label, pours) => {
+			expect(() => document.validate(withRecipe({ ...v60, pours }))).toThrow(
+				new SnapshotValidationError("Invalid pours"),
+			);
+		});
 	});
 
 	it("rejects v1 snapshots as outdated before stripping fields", () => {
@@ -305,8 +409,10 @@ describe("SnapshotDocument", () => {
 			}),
 		).toThrow(new SnapshotValidationError("Invalid designation"));
 		expect(() =>
-			document.validate({ ...validSnapshot, schemaVersion: 3 }),
-		).toThrow(new SnapshotValidationError("Invalid workspace snapshot"));
+			document.validate({ ...validSnapshot, schemaVersion: 4 }),
+		).toThrow(
+			new SnapshotValidationError("Unsupported snapshot schema (expected 3)"),
+		);
 	});
 
 	it("accepts an unset dominant note", () => {

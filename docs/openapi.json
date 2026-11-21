@@ -579,7 +579,7 @@
         "properties": {
           "schemaVersion": {
             "type": "number",
-            "enum": [2]
+            "enum": [3]
           },
           "beans": {
             "type": "array",
@@ -806,6 +806,10 @@
             "type": "number",
             "description": "-5 weak to +5 strong"
           },
+          "starterPours": {
+            "type": "boolean",
+            "description": "Brew used the built-in four-pour V60 schedule"
+          },
           "extractionTime": {
             "type": "string",
             "description": "Seconds"
@@ -890,6 +894,28 @@
           "brewWeight": {
             "type": "number",
             "description": "Target yield/water (g)"
+          },
+          "pours": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Timed pour-over schedule: first at 0s, strictly increasing, last fraction 1",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "atSeconds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "fraction": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "description": "Cumulative fraction of the planned water"
+                }
+              },
+              "required": ["atSeconds", "fraction"]
+            }
           },
           "grindSize": {
             "type": "number"
