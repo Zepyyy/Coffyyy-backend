@@ -4,7 +4,7 @@ import { WorkspaceService } from "./workspace.service";
 
 describe("WorkspaceService", () => {
 	const snapshot = {
-		schemaVersion: 2 as const,
+		schemaVersion: 3 as const,
 		beans: [
 			{
 				localId: "bean-1",
@@ -111,7 +111,7 @@ describe("WorkspaceService", () => {
 		});
 		expect(await service.getSnapshot(7)).toEqual({
 			snapshot: {
-				schemaVersion: 2,
+				schemaVersion: 3,
 				beans: [],
 				machines: [],
 				brews: [],
@@ -199,14 +199,14 @@ describe("WorkspaceService", () => {
 		expect(prisma.$transaction).not.toHaveBeenCalled();
 	});
 
-	it("reads a stored v1 snapshot as v2", async () => {
+	it("reads a stored v1 snapshot as v3", async () => {
 		prisma.user.findUnique.mockResolvedValue({
 			snapshot: structuredClone(v1Snapshot),
 			snapshotVersion: 3,
 		});
 		const { snapshot: read, version } = await service.getSnapshot(7);
 		expect(version).toBe(3);
-		expect(read.schemaVersion).toBe(2);
+		expect(read.schemaVersion).toBe(3);
 		expect(read.recipes).toEqual([]);
 		expect(read.machines[0]).toMatchObject({ method: "moka" });
 		expect(read.machines[0]).not.toHaveProperty("type");

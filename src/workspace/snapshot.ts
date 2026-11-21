@@ -62,8 +62,11 @@ const isRow = (value: unknown): value is Row =>
 
 const rows = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
-// Pure v1 -> v2 upgrade. Anything not a v1 snapshot is returned untouched.
+// Pure upgrade to the current schema. v2 -> v3 only adds optional recipe
+// `pours`, so it just bumps the version. Anything else is returned untouched.
 export function upgradeSnapshot(value: unknown): unknown {
+	if (isRow(value) && value.schemaVersion === 2)
+		return { ...value, schemaVersion: SNAPSHOT_SCHEMA_VERSION };
 	if (!isRow(value) || value.schemaVersion !== 1) return value;
 	const methods = new Map<unknown, BrewMethod>();
 	const machines = rows(value.machines).map((machine) => {
@@ -102,7 +105,26 @@ const ENTITIES: Record<string, string> = {
 	recipes: "recipe",
 };
 
-const OUTDATED_SCHEMA_VERSIONS: unknown[] = [1];
+// v2 clients don't know recipe pours and would drop them on push.
+const OUTDATED_SCHEMA_VERSIONS: unknown[] = [1, 2];
+
+type Pour = { atSeconds: number; fraction: number };
+
+// Mirrors the frontend pourScheduleError: V60 only, first pour at 0s,
+// strictly increasing times and cumulative fractions, ending at 100%.
+function validPourSchedule(pours: Pour[], method: unknown) {
+	if (method !== "pour-over" || pours[0]?.atSeconds !== 0) return false;
+	return (
+		pours.every(
+			(pour, index) =>
+				index === 0 ||
+				(pour.atSeconds > pours[index - 1].atSeconds &&
+					pour.fraction > pours[index - 1].fraction),
+		) &&
+		pours[0].fraction > 0 &&
+		pours[pours.length - 1].fraction === 1
+	);
+}
 
 const emptySnapshot = (): Snapshot => ({
 	schemaVersion: SNAPSHOT_SCHEMA_VERSION,
@@ -133,12 +155,18 @@ export class SnapshotDocument {
 				recipe.method,
 			]),
 		);
-		for (const recipe of snapshot.recipes)
+		for (const recipe of snapshot.recipes) {
 			if (
 				recipe.beanLocalId !== undefined &&
 				!beanIds.has(recipe.beanLocalId as string)
 			)
 				throw new SnapshotValidationError("Invalid recipe relationship");
+			if (
+				recipe.pours !== undefined &&
+				!validPourSchedule(recipe.pours as Pour[], recipe.method)
+			)
+				throw new SnapshotValidationError("Invalid pour schedule");
+		}
 		for (const brew of snapshot.brews) {
 			if (Number.isNaN(Date.parse(String(brew.date))))
 				throw new SnapshotValidationError("Invalid brew date");
@@ -208,6 +236,8 @@ export class SnapshotDocument {
 
 	private schemaErrorMessage(error: ErrorObject | undefined) {
 		const path = error?.instancePath.split("/").slice(1) ?? [];
+		if (path[0] === "schemaVersion")
+			return `Unsupported snapshot schema (expected ${SNAPSHOT_SCHEMA_VERSION})`;
 		if (path.length < 2) return "Invalid workspace snapshot";
 		if (path.length > 2) return `Invalid ${path[2]}`;
 		const missing = error?.params.missingProperty as string | undefined;
